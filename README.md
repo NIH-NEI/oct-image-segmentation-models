@@ -1,9 +1,13 @@
-# oct-choroid-seg
-Code for the paper "Automatic choroidal segmentation in OCT images using supervised deep learning methods"
+# U-Net for image Segmentation
+
+This repository contains the code to train and evaluate a U-net model. The code in this repository is 
+based on the paper "Automatic choroidal segmentation in OCT images using supervised deep learning methods"
 
 Link: https://www.nature.com/articles/s41598-019-49816-4
 
 If the code and methods here are useful to you and aided in your research, please consider citing the paper.
+
+The code in this repository is based on the repository hosted at: www.github.com/bioteam/ML-Image-Segmentation.git
 
 # Dependencies 
 * Python 3.6.4
@@ -13,9 +17,27 @@ If the code and methods here are useful to you and aided in your research, pleas
 * Matplotlib
 * numpy
 
-# BioTeam Github Guidance
+# Instructions
 
-## Inspect example_data.hdf5
+The code in this repository only contains model code and doesn't contain any code related to images preprocessing.
+
+# Model API
+
+## Training
+
+In order to train this model a HDF5 file needs to be provided with the following contents:
+- train_images: It should contain a 3D matrix with the of the shape: (number of images, image width, image height). These images will be used for training.
+- train_labels: It should contain a 3D matrix with the "segmentation maps" corresponding to the `train_images`.
+- val_images: It should contain a 3D matrix with the of the shape: (number of images, image width, image height). These images will be used for validation.
+- val_labels: It should contain a 3D matrix with the "segmentation maps" corresponding to the `val_images`.
+
+
+## Evaluation
+
+
+## Instructions
+
+
 
 Extract images and segmentation files from example_data.hdf5 with `hdf5readimages.py`
 
