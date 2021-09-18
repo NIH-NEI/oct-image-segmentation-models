@@ -18,12 +18,12 @@ if cfg.CHANNELS_LAST:
 training_hdf5_file = h5py.File(cfg.TRAINING_DATA, 'r')
 
 # images numpy array should be of the shape: (number of images, image width, image height, 1)
-# segs numpy array should be of the shape: (number of images, image width, image height)
+# labels numpy array should be of the shape: (number of images, image width, image height, 1)
 train_images, train_labels = readdirimages.load_training_data(training_hdf5_file)
 val_images, val_labels = readdirimages.load_validation_data(training_hdf5_file)
 
-train_labels = to_categorical(readdirimages.create_all_area_masks(train_labels), cfg.NUM_CLASSES)
-val_labels = to_categorical(readdirimages.create_all_area_masks(val_labels), cfg.NUM_CLASSES)
+train_labels = to_categorical(train_labels, cfg.NUM_CLASSES)
+val_labels = to_categorical(val_labels, cfg.NUM_CLASSES)
 
 train_imdb = imdb.ImageDatabase(images=train_images, labels=train_labels, name=cfg.TRAINING_DATASET_NAME, filename=cfg.TRAINING_DATA, mode_type='fullsize', num_classes=cfg.NUM_CLASSES)
 val_imdb = imdb.ImageDatabase(images=val_images, labels=val_labels, name=cfg.TRAINING_DATASET_NAME, filename=cfg.TRAINING_DATA, mode_type='fullsize', num_classes=cfg.NUM_CLASSES)
@@ -35,7 +35,7 @@ opt_params = {}     # default params
 loss = custom_losses.dice_loss
 metric = custom_metrics.dice_coef
 epochs = cfg.EPOCHS
-batch_size = 3
+batch_size = 10
 
 aug_fn_args = [(aug.no_aug, {}), (aug.flip_aug, {'flip_type': 'left-right'})]
 

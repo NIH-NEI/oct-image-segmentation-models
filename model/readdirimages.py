@@ -1,6 +1,5 @@
 import numpy as np
 import h5py
-import cfg
 from PIL import Image, ImageOps, ImageDraw
 
 # images numpy array should be of the shape: (number of images, image width, image height, 1)
@@ -37,6 +36,7 @@ def addhdf5_dataset(npimgarray, name, filename):
 
 
 # Add channel dimension as 4th dimension to image and labels array, e.g. RGB colors
+'''
 def channels_last_reshape(images, channels):
     dim = images.ndim
     if dim == 3:
@@ -46,6 +46,8 @@ def channels_last_reshape(images, channels):
         image_array = []
 
     return image_array
+'''
+
 
 
 # Add 4th dim and create hdf5 dataset
@@ -78,8 +80,10 @@ def mask_categorical(dset1):
     return dset1
 
 # When segs contains area labels, just copy over, and add 4th dim for RGB channels
+'''
 def create_all_area_masks(segs):
     all_masks = channels_last_reshape(segs, 1)
     all_masks = np.array(all_masks)
 
     return all_masks
+'''
