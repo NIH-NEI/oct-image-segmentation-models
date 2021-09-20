@@ -5,7 +5,6 @@ import evaluation_parameters as eparams
 import augmentation as aug
 import h5py
 from keras.models import load_model
-import eval_patch_based
 import eval_semantic
 import os
 import plotting
@@ -42,6 +41,7 @@ def evaluate_network(imdb, model_filename, network_foldername, batch_size, save_
                      flatten_poly=False, ensemble=False, loaded_models=None, network_foldernames=None,
                      model_filenames=None, binarize=True, binarize_after=True, vertical_graph_search=False, bg_ilm=True, bg_csi=False, flatten_pred_edges=False,
                      flat_marg=0, use_thresh=False, thresh=0.5):
+    network_foldername = network_foldername + "/"
 
     if not ensemble:
         if loaded_model is None:

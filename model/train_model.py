@@ -3,7 +3,7 @@ import custom_losses
 import custom_metrics
 import image_database as imdb
 import training_config as cfg
-import readdirimages
+import dataset_loader
 import model
 import training
 import training_parameters as tparams
@@ -19,8 +19,8 @@ training_hdf5_file = h5py.File(cfg.TRAINING_DATA, 'r')
 
 # images numpy array should be of the shape: (number of images, image width, image height, 1)
 # labels numpy array should be of the shape: (number of images, image width, image height, 1)
-train_images, train_labels = readdirimages.load_training_data(training_hdf5_file)
-val_images, val_labels = readdirimages.load_validation_data(training_hdf5_file)
+train_images, train_labels = dataset_loader.load_training_data(training_hdf5_file)
+val_images, val_labels = dataset_loader.load_validation_data(training_hdf5_file)
 
 train_labels = to_categorical(train_labels, cfg.NUM_CLASSES)
 val_labels = to_categorical(val_labels, cfg.NUM_CLASSES)

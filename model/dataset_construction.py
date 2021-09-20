@@ -2,7 +2,6 @@ import h5py
 import time
 import numpy as np
 import datetime
-import parameters
 
 from keras import backend as K
 
@@ -27,7 +26,7 @@ from keras import backend as K
 
 def construct_dataset(images, labels, segs, write_filename, trainvaltest, boundary_names, area_names, patch_class_names,
                       fullsize_class_names, image_names, start_construct_time, patches, patch_labels, patch_col_range,
-                      patch_size, num_boundaries, num_areas, num_channels, dim_ordering, dim_names, alt_output=parameters.DATA_LOCATION,
+                      patch_size, num_boundaries, num_areas, num_channels, dim_ordering, dim_names, alt_output,
                       bg_mode='single', bg_margin=0):
     images = np.array(images, dtype='uint8')
 
