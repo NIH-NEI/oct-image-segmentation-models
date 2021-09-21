@@ -1,6 +1,7 @@
 import augmentation as aug
 import custom_losses
 import custom_metrics
+import dataset_construction
 import dataset_loader
 import eval_config as cfg
 import eval_helper
@@ -19,8 +20,9 @@ else:
 
 test_hdf5_file = h5py.File(cfg.TEST_DATASET_FILE, 'r')
 
-test_images, test_labels, test_image_names = dataset_loader.load_testing_data(test_hdf5_file)
+test_images, test_segs, test_image_names = dataset_loader.load_testing_data(test_hdf5_file)
 
+test_labels = dataset_construction.create_all_area_masks(test_images, test_segs)
 test_labels = to_categorical(test_labels, cfg.NUM_CLASSES)
 
 # boundary names should be a list of strings with length = NUM_CLASSES - 1

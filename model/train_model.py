@@ -4,6 +4,7 @@ import custom_metrics
 import image_database as imdb
 import training_config as cfg
 import dataset_loader
+import dataset_construction
 import model
 import training
 import training_parameters as tparams
@@ -18,9 +19,12 @@ if cfg.CHANNELS_LAST:
 training_hdf5_file = h5py.File(cfg.TRAINING_DATA, 'r')
 
 # images numpy array should be of the shape: (number of images, image width, image height, 1)
-# labels numpy array should be of the shape: (number of images, image width, image height, 1)
-train_images, train_labels = dataset_loader.load_training_data(training_hdf5_file)
-val_images, val_labels = dataset_loader.load_validation_data(training_hdf5_file)
+# segments numpy array should be of the shape: (number of images, number of boundaries, image width)
+train_images, train_segs = dataset_loader.load_training_data(training_hdf5_file)
+val_images, val_segs = dataset_loader.load_validation_data(training_hdf5_file)
+
+train_labels = dataset_construction.create_all_area_masks(train_images, train_segs)
+val_labels = dataset_construction.create_all_area_masks(val_images, val_segs)
 
 train_labels = to_categorical(train_labels, cfg.NUM_CLASSES)
 val_labels = to_categorical(val_labels, cfg.NUM_CLASSES)
