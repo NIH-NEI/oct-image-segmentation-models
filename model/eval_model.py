@@ -34,7 +34,7 @@ GSGRAD = 1
 CUSTOM_OBJECTS = dict(list(custom_losses.custom_loss_objects.items()) +
                       list(custom_metrics.custom_metric_objects.items()))
 
-eval_imdb = imdb.ImageDatabase(images=test_images, labels=test_labels, segs=None, image_names=test_image_names,
+eval_imdb = imdb.ImageDatabase(images=test_images, labels=test_labels, segs=test_segs, image_names=test_image_names,
                                boundary_names=BOUNDARY_NAMES, area_names=AREA_NAMES,
                                fullsize_class_names=AREA_NAMES, num_classes=cfg.NUM_CLASSES, name=dataset_name, filename=cfg.TEST_DATASET_FILE, mode_type='fullsize')
 
@@ -46,5 +46,5 @@ aug_fn_arg = (aug.no_aug, {})
 
 eval_helper.evaluate_network(eval_imdb, os.path.basename(model_file), os.path.dirname(model_file),
                              BATCH_SIZE, save_parameters.SaveParameters(pngimages=True, raw_image=True, raw_labels=True, temp_extra=True, boundary_maps=True, area_maps=True, comb_area_maps=True, seg_plot=True),
-                             gsgrad=GSGRAD, aug_fn_arg=aug_fn_arg, eval_mode='both', boundaries=False, boundary_errors=True, dice_errors=True, col_error_range=None, normalise_input=True, transpose=False)
+                             gsgrad=GSGRAD, aug_fn_arg=aug_fn_arg, eval_mode='both', boundaries=True, boundary_errors=True, dice_errors=True, col_error_range=None, normalise_input=True, transpose=False)
 
