@@ -10,12 +10,12 @@ If the code and methods here are useful to you and aided in your research, pleas
 The code in this repository is based on the repository hosted at: www.github.com/bioteam/ML-Image-Segmentation.git
 
 # Dependencies 
-* Python 3.6.4
-* Keras 2.4.3
-* tensorflow 2.3.1
-* h5py
-* Matplotlib
-* numpy
+
+The `requirements.txt` file contains the dependencies.
+
+After creating a virtual environment run:
+
+`pip3 install -r requirements.txt`
 
 # Instructions
 
@@ -26,11 +26,17 @@ The code in this repository only contains model code and doesn't contain any cod
 ## Training
 
 In order to train this model a HDF5 file needs to be provided with the following contents:
-- train_images: It should contain a 3D matrix with the of the shape: (number of images, image width, image height). These images will be used for training.
-- train_labels: It should contain a 3D matrix with the "segmentation maps" corresponding to the `train_images`.
-- val_images: It should contain a 3D matrix with the of the shape: (number of images, image width, image height). These images will be used for validation.
-- val_labels: It should contain a 3D matrix with the "segmentation maps" corresponding to the `val_images`.
+- train_images: It should contain a 3D matrix with the of the shape: (number of images, image width, image height, 1). These images will be used for training.
+- train_segs: It should contain a 3D matrix with the boundaries corresponding to the `train_images`. The shape of the matrix should be: (number of images, number of boundaries, image width)
+- val_images: It should contain a 3D matrix with the of the shape: (number of images, image width, image height, 1). These images will be used for validation.
+- val_segs: It should contain a 3D matrix with the "segmentation maps" corresponding to the `val_images`. The shape of the matrix should be: (number of images, number of boundaries, image width)
 
+To train the model:
+1. In `unet/training_config.py`:
+    - Point `TRAINING_DATA` to the location of the hdf5 dataset that should be used for training
+    - Modify rest of parameters accordingly
+
+2. 
 
 ## Evaluation
 
@@ -159,5 +165,4 @@ Extract images and segmentation files from example_data.hdf5 with `hdf5readimage
    been evaluated.
 
 # Still to be added
-* *RNN bottleneck* and *Combined* semantic network models
 * Code and instructions for preprocessing using contrast enhancement (Girard filter)
