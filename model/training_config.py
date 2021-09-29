@@ -1,11 +1,11 @@
 # Training image input params
-TRAINING_DATA = '../input/training_dataset.hdf5'
-RESULTS_LOCATION = '../results/'
+TRAINING_DATA = "../input/training_dataset.hdf5"
+RESULTS_LOCATION = "../results/"
 INPUT_CHANNELS = 1
 CHANNELS_LAST=True
-NUM_CLASSES = 4 #TODO: Shouldn't be a config param.
 
 # Model params
+BATCH_SIZE = 2
 EPOCHS = 1000
 
 # Tagging (for recording purposes params)
