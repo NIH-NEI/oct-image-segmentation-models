@@ -25,7 +25,7 @@ The code in this repository only contains model code and doesn't contain any cod
 
 ## Training
 
-In order to train this model a HDF5 file needs to be provided with the following contents:
+In order to train this model a HDF5 file needs to be provided with the following contents (e.g. see "mouse-image-segmentation" or "porcine-image-segmentation" repositories for instructions on how to generate the datasets):
 - train_images: It should contain a 3D matrix with the of the shape: (number of images, image width, image height, 1). These images will be used for training.
 - train_segs: It should contain a 3D matrix with the boundaries corresponding to the `train_images`. The shape of the matrix should be: (number of images, number of boundaries, image width)
 - val_images: It should contain a 3D matrix with the of the shape: (number of images, image width, image height, 1). These images will be used for validation.
