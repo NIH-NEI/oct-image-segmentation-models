@@ -1,22 +1,24 @@
-import graph_search
-import numpy as np
+import os
+import sys
 import time
-import evaluation_parameters as eparams
-import augmentation as aug
+
 import h5py
 from keras.models import load_model
-import eval_semantic
-import os
-import plotting
-from matplotlib import cm
-import common
-import custom_metrics
-import custom_losses
-import results_collation
-import dataset_construction as datacon
-import sys
 import keras.backend as K
 from keras.utils import to_categorical
+from matplotlib import cm
+import numpy as np
+
+from unet.model import augmentation as aug
+from unet.model import common
+from unet.model import custom_metrics
+from unet.model import custom_losses
+from unet.model import dataset_construction as datacon
+from unet.model import eval_semantic
+from unet.model import evaluation_parameters as eparams
+from unet.model import graph_search
+from unet.model import plotting
+from unet.model import results_collation
 
 
 def resource_path(relative):

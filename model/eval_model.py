@@ -1,17 +1,20 @@
-import augmentation as aug
-import custom_losses
-import custom_metrics
-import dataset_construction
-import dataset_loader
-import eval_config as cfg
-import eval_helper
-import image_database as imdb
+
 import os
-import save_parameters
 
 from keras.models import load_model
 from keras.utils import to_categorical
 import h5py
+
+from unet.model import augmentation as aug
+from unet.model import custom_losses
+from unet.model import custom_metrics
+from unet.model import dataset_construction
+from unet.model import dataset_loader
+from unet.model import eval_config as cfg
+from unet.model import eval_helper
+from unet.model import image_database as imdb
+from unet.model import save_parameters
+
 
 def evaluate_model_from_hdf5(test_dataset_file):
     test_hdf5_file = h5py.File(test_dataset_file, 'r')

@@ -1,11 +1,13 @@
-import data_generator
-import eval_helper
-import numpy as np
-from keras.utils import to_categorical
-import image_database as image_db
 import time
+
+from keras.utils import to_categorical
 from keras.models import Model
-import evaluation_output as eoutput
+import numpy as np
+
+from unet.model import data_generator
+from unet.model import eval_helper
+from unet.model import evaluation_output as eoutput
+from unet.model import image_database as image_db
 
 
 def evaluate_single_images(eval_params, imdb):

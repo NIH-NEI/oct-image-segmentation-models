@@ -1,5 +1,5 @@
-import augmentation as aug
-import save_parameters as sparams
+from unet.model import augmentation as aug
+from unet.model import save_parameters as sparams
 
 
 class EvaluationParameters:
