@@ -40,8 +40,7 @@ def evaluate_network(imdb, model_filename, network_foldername, batch_size, save_
                      dice_errors=True,
                      loaded_model=None, graph_structure=None, trim_maps=False, trim_ref_ind=0, trim_window=(0, 0),
                      save_foldername=None, collate_results=True, flatten_image=False, flatten_ind=0,
-                     flatten_poly=False, loaded_models=None, network_foldernames=None,
-                     model_filenames=None, binarize=True, binarize_after=True, vertical_graph_search=False, bg_ilm=True, bg_csi=False, flatten_pred_edges=False,
+                     flatten_poly=False, binarize=True, binarize_after=True, vertical_graph_search=False, bg_ilm=True, bg_csi=False, flatten_pred_edges=False,
                      flat_marg=0, use_thresh=False, thresh=0.5):
     network_foldername = network_foldername + "/"
 
@@ -89,8 +88,8 @@ def evaluate_network(imdb, model_filename, network_foldername, batch_size, save_
                                                recalc_errors=recalc_errors, boundaries=boundaries,
                                                trim_maps=trim_maps, trim_ref_ind=trim_ref_ind, trim_window=trim_window, dice_errors=dice_errors,
                                                save_foldername=save_foldername, flatten_image=flatten_image,
-                                               flatten_ind=flatten_ind, flatten_poly=flatten_poly, loaded_models=loaded_models,
-                                               model_filenames=model_filenames, network_foldernames=network_foldernames, binarize=binarize, binarize_after=binarize_after, vertical_graph_search=vertical_graph_search,
+                                               flatten_ind=flatten_ind, flatten_poly=flatten_poly,
+                                               binarize=binarize, binarize_after=binarize_after, vertical_graph_search=vertical_graph_search,
                                                bg_ilm=bg_ilm, bg_csi=bg_csi, flatten_pred_edges=flatten_pred_edges, flat_marg=flat_marg, use_thresh=use_thresh, thresh=thresh)
 
     if save_params.disable is False:

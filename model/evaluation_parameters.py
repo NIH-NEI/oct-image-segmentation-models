@@ -91,14 +91,11 @@ class EvaluationParameters:
                  verbosity=3, gsgrad=1, comb_pred=False, recalc_errors=False, boundaries=True,
                  trim_maps=False, trim_ref_ind=0, trim_window=(0, 0), dice_errors=True,
                  save_foldername=None, flatten_image=False, flatten_ind=0, flatten_poly=False,
-                 loaded_models=None, model_filenames=None, network_foldernames=None, binarize=True, binarize_after=False, vertical_graph_search=False, bg_ilm=True, bg_csi=False, flatten_pred_edges=False,
+                 binarize=True, binarize_after=False, vertical_graph_search=False, bg_ilm=True, bg_csi=False, flatten_pred_edges=False,
                  flat_marg=0, use_thresh=False, thresh=0.5):
         self.loaded_model = loaded_model
-        self.loaded_models = loaded_models
         self.model_filename = model_filename
-        self.model_filenames = model_filenames
         self.network_foldername = network_foldername
-        self.network_foldernames = network_foldernames
 
         self.binarize = binarize
         self.binarize_after = binarize_after
