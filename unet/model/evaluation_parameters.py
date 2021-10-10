@@ -21,9 +21,6 @@ class EvaluationParameters:
         'area_names' with shape: (number of boundaries + 1,) (dtype = 'S' - fixed length strings)
         _________
 
-        batch_size: size of batch to be used (number of images through network at once)
-        _________
-
         aug_fn_args: 2 tuple includes: function used to augment each image,
          tuple of arguments to be passed to the augmentation function. Default: (None, None), do not use augmentation.
         _________
@@ -84,15 +81,42 @@ class EvaluationParameters:
         _________
 
         """
-    def __init__(self, loaded_model, model_filename, network_foldername, dataname,
-                 batch_size, graph_structure, col_error_range,
-                 eval_mode='both', aug_fn_arg=(aug.no_aug, {}), patch_size=None, save_params=sparams.SaveParameters(),
-                 transpose=False, normalise_input=True,
-                 verbosity=3, gsgrad=1, comb_pred=False, recalc_errors=False, boundaries=True,
-                 trim_maps=False, trim_ref_ind=0, trim_window=(0, 0), dice_errors=True,
-                 save_foldername=None, flatten_image=False, flatten_ind=0, flatten_poly=False,
-                 binarize=True, binarize_after=False, vertical_graph_search=False, bg_ilm=True, bg_csi=False, flatten_pred_edges=False,
-                 flat_marg=0, use_thresh=False, thresh=0.5):
+    def __init__(
+        self,
+        loaded_model,
+        model_filename,
+        network_foldername,
+        dataname,
+        graph_structure,
+        col_error_range,
+        save_foldername,
+        eval_mode='both',
+        aug_fn_arg=(aug.no_aug, {}),
+        patch_size=None,
+        save_params=sparams.SaveParameters(),
+        transpose=False,
+        normalise_input=True,
+        verbosity=3,
+        gsgrad=1,
+        comb_pred=False,
+        recalc_errors=False,
+        boundaries=True,
+        trim_maps=False,
+        trim_ref_ind=0,
+        trim_window=(0, 0),
+        dice_errors=True,
+        flatten_image=False,
+        flatten_ind=0,
+        flatten_poly=False,
+        binarize=True,
+        binarize_after=False,
+        bg_ilm=True,
+        bg_csi=False,
+        flatten_pred_edges=False,
+        flat_marg=0,
+        use_thresh=False,
+        thresh=0.5
+    ):
         self.loaded_model = loaded_model
         self.model_filename = model_filename
         self.network_foldername = network_foldername
@@ -101,7 +125,6 @@ class EvaluationParameters:
         self.binarize_after = binarize_after
 
         self.dataname = dataname
-        self.batch_size = batch_size
         self.eval_mode = eval_mode
         self.aug_fn_arg = aug_fn_arg
         self.patch_size = patch_size
@@ -122,7 +145,6 @@ class EvaluationParameters:
         self.flatten_poly = flatten_poly
 
         self.graph_structure = graph_structure
-        self.vertical_graph_search = vertical_graph_search
         self.flatten_pred_edges = flatten_pred_edges
         self.flat_marg = flat_marg
 
@@ -137,18 +159,9 @@ class EvaluationParameters:
         self.aug_desc = self.aug_fn(None, None, None, self.aug_arg, desc_only=True)
         self.gsgrad = gsgrad
 
-        if save_foldername is None:
-            if boundaries is True:
-                self.save_foldername = self.network_foldername + "/" + self.aug_desc + "_" + self.dataname
-            else:
-                self.save_foldername = self.network_foldername + "/" + self.aug_desc + "_" + \
-                                       self.dataname
-        else:
-            self.save_foldername = save_foldername
+        self.save_foldername = save_foldername
 
         if self.verbosity >= 1:
             self.predict_verbosity = 1
         else:
             self.predict_verbosity = 0
-
-

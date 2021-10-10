@@ -18,5 +18,3 @@ class EvaluationOutput:
 
     def __init__(self):
         pass
-
-
