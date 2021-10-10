@@ -80,56 +80,28 @@ def evaluate_single_images(eval_params, imdb):
 
             start_predict_time = time.time()
 
-            if not eval_params.ensemble:
-                predicted_labels = eval_params.loaded_model.predict_generator(gen,
+            predicted_labels = eval_params.loaded_model.predict_generator(gen,
                                                                               verbose=eval_params.predict_verbosity)
-            else:
-                predicted_labels = []
-
-                for i in range(len(eval_params.loaded_models)):
-                    predicted_labels.append(eval_params.loaded_models[i].predict_generator(gen,
-                                                                                         verbose=eval_params.predict_verbosity))
-
             end_predict_time = time.time()
 
             predict_time = end_predict_time - start_predict_time
 
             if eval_params.save_params.activations is True:
-                if not eval_params.ensemble:
-                    if eval_params.save_params.act_layers is None:
-                        layer_outputs = [layer.output for layer in eval_params.loaded_model.layers[1:len(eval_params.loaded_model.layers)]]
-                    else:
-                        layer_outputs = [layer.output for layer in eval_params.save_params.act_layers]
-
-                    activation_model = Model(inputs=eval_params.loaded_model.input,
-                                             outputs=layer_outputs)
-                    # Creates a model that will return these outputs, given the model input
-
-                    if eval_params.normalise_input:
-                        images_norm = images / 255
-                    else:
-                        images_norm = images
-
-                    activations = activation_model.predict(images_norm)
+                if eval_params.save_params.act_layers is None:
+                    layer_outputs = [layer.output for layer in eval_params.loaded_model.layers[1:len(eval_params.loaded_model.layers)]]
                 else:
-                    layer_outputs = []
-                    activations = []
+                    layer_outputs = [layer.output for layer in eval_params.save_params.act_layers]
 
-                    # TODO: implement write handling for ensemble activations
-                    for i in range(len(eval_params.loaded_models)):
-                        layer_outputs.append([layer.output for layer in
-                                         eval_params.loaded_models[i].layers[1:len(eval_params.loaded_models[i].layers)]])
+                activation_model = Model(inputs=eval_params.loaded_model.input,
+                                        outputs=layer_outputs)
+                # Creates a model that will return these outputs, given the model input
 
-                        activation_model = Model(inputs=eval_params.loaded_models[i].input,
-                                                 outputs=layer_outputs[i])
-                        # Creates a model that will return these outputs, given the model input
+                if eval_params.normalise_input:
+                    images_norm = images / 255
+                else:
+                    images_norm = images
 
-                        if eval_params.normalise_input:
-                            images_norm = images / 255
-                        else:
-                            images_norm = images
-
-                        activations.append(activation_model.predict(images_norm))
+                activations = activation_model.predict(images_norm)
             else:
                 activations = None
                 layer_outputs = None
@@ -137,49 +109,14 @@ def evaluate_single_images(eval_params, imdb):
             if eval_params.verbosity >= 2:
                 print("Converting predictions to boundary maps...")
 
-            if not eval_params.ensemble:
-                if eval_params.transpose is True:
-                    predicted_labels = np.transpose(predicted_labels, axes=(0, 2, 1, 3))
+            if eval_params.transpose is True:
+                predicted_labels = np.transpose(predicted_labels, axes=(0, 2, 1, 3))
 
-                # convert predictions to usable boundary probability maps
+            # convert predictions to usable boundary probability maps
 
-                start_convert_time = time.time()
+            start_convert_time = time.time()
 
-                [comb_area_map, area_maps] = eval_helper.perform_argmax(predicted_labels, ensemble=False, bin=eval_params.binarize)
-            else:
-                if eval_params.transpose is True:
-                    for i in range(len(eval_params.loaded_models)):
-                        predicted_labels[i] = np.transpose(predicted_labels[i], axes=(0, 2, 1, 3))
-
-                # convert predictions to usable boundary probability maps
-
-                start_convert_time = time.time()
-
-                [comb_area_map_sep, area_maps_sep] = eval_helper.perform_argmax(predicted_labels, ensemble=True, bin=eval_params.binarize)
-
-                # ensemble using majority voting scheme
-                [comb_area_map, area_maps] = eval_helper.perform_ensemble(area_maps_sep)
-
-                print(area_maps.shape)
-
-                if eval_params.binarize_after is True:
-                    num_maps = area_maps.shape[1]
-
-                    if eval_params.use_thresh:
-                        area_maps[:, 1][area_maps[:, 1] >= eval_params.thresh] = 1
-                        area_maps[:, 1][area_maps[:, 1] < eval_params.thresh] = 0
-
-                        area_maps[:, 0][area_maps[:, 0] < eval_params.thresh] = 1
-                        area_maps[:, 0][area_maps[:, 0] >= eval_params.thresh] = 0
-                        area_maps = np.argmax(area_maps, axis=1)
-                    else:
-                        area_maps = np.argmax(area_maps, axis=1)
-
-                    area_maps = to_categorical(area_maps, num_maps)
-
-                    area_maps = np.transpose(area_maps, axes=(0, 3, 1, 2))
-
-                print(area_maps.shape)
+            [comb_area_map, area_maps] = eval_helper.perform_argmax(predicted_labels, bin=eval_params.binarize)
 
             eval_output.comb_area_map = comb_area_map
             eval_output.area_maps = area_maps

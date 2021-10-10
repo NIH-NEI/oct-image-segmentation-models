@@ -40,34 +40,20 @@ def evaluate_network(imdb, model_filename, network_foldername, batch_size, save_
                      dice_errors=True,
                      loaded_model=None, graph_structure=None, trim_maps=False, trim_ref_ind=0, trim_window=(0, 0),
                      save_foldername=None, collate_results=True, flatten_image=False, flatten_ind=0,
-                     flatten_poly=False, ensemble=False, loaded_models=None, network_foldernames=None,
+                     flatten_poly=False, loaded_models=None, network_foldernames=None,
                      model_filenames=None, binarize=True, binarize_after=True, vertical_graph_search=False, bg_ilm=True, bg_csi=False, flatten_pred_edges=False,
                      flat_marg=0, use_thresh=False, thresh=0.5):
     network_foldername = network_foldername + "/"
 
-    if not ensemble:
-        if loaded_model is None:
-            if eval_mode == 'gs':
-                # don't need to load model if we are just doing the graph search
-                loaded_model = None
-            else:
-                custom_objects = dict(list(custom_losses.custom_loss_objects.items()) +
-                                      list(custom_metrics.custom_metric_objects.items()))
+    if loaded_model is None:
+        if eval_mode == 'gs':
+            # don't need to load model if we are just doing the graph search
+            loaded_model = None
+        else:
+            custom_objects = dict(list(custom_losses.custom_loss_objects.items()) +
+                                list(custom_metrics.custom_metric_objects.items()))
 
-                loaded_model = load_model(resource_path(network_foldername + model_filename), custom_objects=custom_objects)
-    else:
-        if loaded_models is None:
-            if eval_mode == 'gs':
-                # don't need to load models if we are just doing the graph search
-                loaded_models = None
-            else:
-                loaded_models = []
-
-                custom_objects = dict(list(custom_losses.custom_loss_objects.items()) +
-                                      list(custom_metrics.custom_metric_objects.items()))
-
-                for i in range(len(network_foldernames)):
-                    loaded_models.append(load_model(resource_path(network_foldernames[i] + model_filenames[i]), custom_objects=custom_objects))
+            loaded_model = load_model(resource_path(network_foldername + model_filename), custom_objects=custom_objects)
 
     if col_error_range is None:
         col_error_range = range(imdb.image_width)
@@ -83,10 +69,7 @@ def evaluate_network(imdb, model_filename, network_foldername, batch_size, save_
                                                                    max_grad=gsgrad)]
 
     if use_config:
-        if not ensemble:
-            loaded_config = h5py.File(resource_path(network_foldername + "config.hdf5"), 'r')
-        else:
-            loaded_config = h5py.File(resource_path(network_foldernames[0] + "config.hdf5"), 'r')
+        loaded_config = h5py.File(resource_path(network_foldername + "config.hdf5"), 'r')
 
         type = np.char.decode(loaded_config.attrs["type"], 'utf-8')
 
@@ -106,7 +89,7 @@ def evaluate_network(imdb, model_filename, network_foldername, batch_size, save_
                                                recalc_errors=recalc_errors, boundaries=boundaries,
                                                trim_maps=trim_maps, trim_ref_ind=trim_ref_ind, trim_window=trim_window, dice_errors=dice_errors,
                                                save_foldername=save_foldername, flatten_image=flatten_image,
-                                               flatten_ind=flatten_ind, flatten_poly=flatten_poly, ensemble=ensemble, loaded_models=loaded_models,
+                                               flatten_ind=flatten_ind, flatten_poly=flatten_poly, loaded_models=loaded_models,
                                                model_filenames=model_filenames, network_foldernames=network_foldernames, binarize=binarize, binarize_after=binarize_after, vertical_graph_search=vertical_graph_search,
                                                bg_ilm=bg_ilm, bg_csi=bg_csi, flatten_pred_edges=flatten_pred_edges, flat_marg=flat_marg, use_thresh=use_thresh, thresh=thresh)
 
@@ -154,14 +137,7 @@ def evaluate_network(imdb, model_filename, network_foldername, batch_size, save_
 def save_eval_config_file(eval_params, imdb):
     config_file = h5py.File(eval_params.save_foldername + "/config.hdf5", 'w')
 
-    config_file.attrs['ensemble'] = eval_params.ensemble
-
-    if not eval_params.ensemble:
-        config_file.attrs["model_filename"] = np.array(eval_params.model_filename, dtype='S100')
-    else:
-        config_file.attrs["model_filenames"] = np.array(eval_params.model_filenames, dtype='S100')
-        config_file.attrs["network_foldernames"] = np.array(eval_params.network_foldernames, dtype='S100')
-
+    config_file.attrs["model_filename"] = np.array(eval_params.model_filename, dtype='S100')
     config_file.attrs["data_filename"] = np.array(imdb.filename, dtype='S100')
 
     aug_fn = eval_params.aug_fn_arg[0]
@@ -205,7 +181,7 @@ def eval_second_step(eval_params, prob_maps,
     reconstructed_maps = np.expand_dims(reconstructed_maps, axis=0)
 
     if eval_params.dice_errors is True:
-        [comb_area_map_recalc, reconstructed_maps] = perform_argmax(reconstructed_maps, ensemble=False)
+        [comb_area_map_recalc, reconstructed_maps] = perform_argmax(reconstructed_maps)
 
         recalc_dices = calc_dice(eval_params, reconstructed_maps, np.expand_dims(cur_augment_label, axis=0))
 
@@ -657,12 +633,8 @@ def save_intermediate_attributes_semantic(eval_params, imdb, name, predict_time,
     loadsave_file = open_append_loadsave_file(eval_params.save_foldername, name)
 
     loadsave_file.attrs["aug_desc"] = np.array(eval_params.aug_desc, dtype='S100')
-    if not eval_params.ensemble:
-        loadsave_file.attrs["model_filename"] = np.array(eval_params.model_filename, dtype='S100')
-        loadsave_file.attrs["network_foldername"] = np.array(eval_params.network_foldername, dtype='S100')
-    else:
-        loadsave_file.attrs["model_filenames"] = np.array(eval_params.model_filenames, dtype='S100')
-        loadsave_file.attrs["network_foldernames"] = np.array(eval_params.network_foldernames, dtype='S100')
+    loadsave_file.attrs["model_filename"] = np.array(eval_params.model_filename, dtype='S100')
+    loadsave_file.attrs["network_foldername"] = np.array(eval_params.network_foldername, dtype='S100')
     loadsave_file.attrs["data_filename"] = np.array(imdb.filename, dtype='S100')
     loadsave_file.attrs["predict_time"] = np.array(predict_time)
     loadsave_file.attrs["augment_time"] = np.array(augment_time)
@@ -671,7 +643,6 @@ def save_intermediate_attributes_semantic(eval_params, imdb, name, predict_time,
     if eval_params.save_params.boundary_maps is True:
         loadsave_file.attrs["complete_predict"] = True
     loadsave_file.attrs["convert_time"] = convert_time
-    loadsave_file.attrs["ensemble"] = eval_params.ensemble
 
     loadsave_file.close()
 
@@ -752,18 +723,13 @@ def save_intermediate_attributes_allimages(eval_params, imdb, predict_time, augm
     loadsave_file = open_allimages_file(eval_params.save_foldername, 'a')
 
     loadsave_file.attrs["aug_desc"] = np.array(eval_params.aug_desc, dtype='S100')
-    if not eval_params.ensemble:
-        loadsave_file.attrs["model_filename"] = np.array(eval_params.model_filename, dtype='S100')
-        loadsave_file.attrs["network_foldername"] = np.array(eval_params.network_foldername, dtype='S100')
-    else:
-        loadsave_file.attrs["model_filenames"] = np.array(eval_params.model_filenames, dtype='S100')
-        loadsave_file.attrs["network_foldernames"] = np.array(eval_params.network_foldernames, dtype='S100')
+    loadsave_file.attrs["model_filename"] = np.array(eval_params.model_filename, dtype='S100')
+    loadsave_file.attrs["network_foldername"] = np.array(eval_params.network_foldername, dtype='S100')
     loadsave_file.attrs["data_filename"] = np.array(imdb.filename, dtype='S100')
     loadsave_file.attrs["predict_time"] = np.array(predict_time)
     loadsave_file.attrs["augment_time"] = np.array(augment_time)
     loadsave_file.attrs["generator_time"] = np.array(generator_time)
     loadsave_file.attrs["intermediate_timestamp"] = np.array(common.get_timestamp(), dtype='S100')
-    loadsave_file.attrs["ensemble"] = eval_params.ensemble
 
     if eval_params.save_params.boundary_maps is True:
         loadsave_file.attrs["complete_predict"] = True
@@ -1022,74 +988,24 @@ def calc_dice(eval_params, predictions, labels):
     return dices
 
 
-def perform_argmax(predictions, ensemble, bin=True):
-    if not ensemble:
-        if K.image_data_format() == 'channels_last':
-            pass
-        else:
-            predictions = np.transpose(predictions, (0, 2, 3, 1))
-
-        num_maps = predictions.shape[3]
-
-        if bin:
-            argmax_pred = np.argmax(predictions, axis=3)
-
-            categorical_pred = to_categorical(argmax_pred, num_maps)
-            categorical_pred = np.transpose(categorical_pred, axes=(0, 3, 1, 2))
-        else:
-            argmax_pred = np.argmax(predictions, axis=3)
-            categorical_pred = np.transpose(predictions, axes=(0, 3, 1, 2))
+def perform_argmax(predictions, bin=True):
+    if K.image_data_format() == 'channels_last':
+        pass
     else:
-        argmax_pred = []
-        categorical_pred = []
+        predictions = np.transpose(predictions, (0, 2, 3, 1))
 
-        for i in range(len(predictions)):
-            if K.image_data_format() == 'channels_last':
-                pass
-            else:
-                predictions[i] = np.transpose(predictions[i], (0, 2, 3, 1))
+    num_maps = predictions.shape[3]
 
-            num_maps = predictions[i].shape[3]
+    if bin:
+        argmax_pred = np.argmax(predictions, axis=3)
 
-            if bin:
-                argmax_pred.append(np.argmax(predictions[i], axis=3))
-
-                categorical_pred.append(to_categorical(argmax_pred[i], num_maps))
-                categorical_pred[i] = np.transpose(categorical_pred[i], axes=(0, 3, 1, 2))
-            else:
-                argmax_pred.append(np.argmax(predictions[i], axis=3))
-
-                categorical_pred.append(np.transpose(predictions[i], axes=(0, 3, 1, 2)))
+        categorical_pred = to_categorical(argmax_pred, num_maps)
+        categorical_pred = np.transpose(categorical_pred, axes=(0, 3, 1, 2))
+    else:
+        argmax_pred = np.argmax(predictions, axis=3)
+        categorical_pred = np.transpose(predictions, axes=(0, 3, 1, 2))
 
     return [argmax_pred, categorical_pred]
-
-
-def perform_ensemble(area_maps_sep):
-    area_maps_ensemble = np.concatenate(area_maps_sep, axis=0)
-
-    area_maps_ensemble = np.sum(area_maps_ensemble, axis=0)
-
-    area_maps_ensemble /= len(area_maps_sep)
-
-    area_maps_ensemble = np.expand_dims(area_maps_ensemble, axis=0)
-
-    comb_area_maps_ensemble = np.argmax(area_maps_ensemble, axis=1)
-
-    return [comb_area_maps_ensemble, area_maps_ensemble]
-
-
-def perform_ensemble_patch(boundary_maps_sep):
-    boundary_maps_ensemble = np.concatenate(boundary_maps_sep, axis=0)
-
-    boundary_maps_ensemble = np.sum(boundary_maps_ensemble, axis=0)
-
-    boundary_maps_ensemble = convert_maps_float64(boundary_maps_ensemble)
-
-    boundary_maps_ensemble /= len(boundary_maps_sep)
-
-    boundary_maps_ensemble = convert_maps_uint8(boundary_maps_ensemble)
-
-    return boundary_maps_ensemble
 
 
 def calc_areas(y_pred, y_true):
