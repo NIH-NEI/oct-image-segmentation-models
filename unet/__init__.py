@@ -3,3 +3,8 @@
 # 2. MINOR version when you add functionality in a backwards-compatible manner;
 # 3. PATCH version when you make backwards-compatible bug fixes.
 __version__ = "0.1.0"
+
+import matplotlib
+# There is a memory buildup in matplotlib. For now current solution is to use "Agg"
+# For reference: https://github.com/matplotlib/mplfinance/issues/386
+matplotlib.use("Agg")
