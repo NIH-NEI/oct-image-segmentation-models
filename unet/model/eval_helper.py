@@ -204,7 +204,7 @@ def evaluate_semantic_network(eval_params, imdb, is_evaluate):
 
         start_predict_time = time.time()
 
-        predicted_labels = eval_params.loaded_model.predict_generator(
+        predicted_labels = eval_params.loaded_model.predict(
             gen, verbose=eval_params.predict_verbosity
         )
 
@@ -212,33 +212,8 @@ def evaluate_semantic_network(eval_params, imdb, is_evaluate):
 
         predict_time = end_predict_time - start_predict_time
 
-        if eval_params.save_params.activations is True:
-            if eval_params.save_params.act_layers is None:
-                layer_outputs = [
-                    layer.output
-                    for layer in eval_params.loaded_model.layers[
-                        1 : len(eval_params.loaded_model.layers)
-                    ]
-                ]
-            else:
-                layer_outputs = [
-                    layer.output for layer in eval_params.save_params.act_layers
-                ]
-
-            activation_model = Model(
-                inputs=eval_params.loaded_model.input, outputs=layer_outputs
-            )
-            # Creates a model that will return these outputs, given the model input
-
-            if eval_params.normalise_input:
-                images_norm = images / 255
-            else:
-                images_norm = images
-
-            activations = activation_model.predict(images_norm)
-        else:
-            activations = None
-            layer_outputs = None
+        activations = None
+        layer_outputs = None
 
         if eval_params.verbosity >= 2:
             print("Converting predictions to boundary maps...")
