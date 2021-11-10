@@ -58,7 +58,7 @@ def evaluate_model(
         model_file_path,
         is_evaluate,
         save_parameters.SaveParameters(
-            pngimages=True,
+            pngimages=False,
             raw_image=True,
             raw_labels=True,
             temp_extra=True,

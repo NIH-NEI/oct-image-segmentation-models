@@ -377,14 +377,14 @@ def eval_second_step(
     )
     reconstructed_maps = np.expand_dims(reconstructed_maps, axis=0)
 
-    if is_evaluate and eval_params.dice_errors is True:
-        [comb_area_map_recalc, reconstructed_maps] = perform_argmax(reconstructed_maps)
+    [comb_area_map_recalc, reconstructed_maps] = perform_argmax(reconstructed_maps)
 
+    if is_evaluate and eval_params.dice_errors == True:
         recalc_dices = calc_dice(
             eval_params, reconstructed_maps, np.expand_dims(cur_augment_label, axis=0)
         )
 
-        comb_area_map_recalc = np.squeeze(comb_area_map_recalc)
+    comb_area_map_recalc = np.squeeze(comb_area_map_recalc)
 
     if eval_params.flatten_image is True:
         [flattened_image, offsets, flatten_boundary] = datacon.flatten_image_boundary(
@@ -446,10 +446,8 @@ def eval_second_step(
                     "float64",
                     np.squeeze(recalc_dices),
                 )
-        if (
-            eval_params.save_params.comb_area_maps_recalc is True
-            and eval_params.dice_errors is True
-        ):
+
+        if eval_params.dice_errors == True:
             save_dataset_extra(
                 eval_params,
                 cur_image_name,
@@ -458,16 +456,13 @@ def eval_second_step(
                 comb_area_map_recalc,
             )
 
-            if eval_params.save_params.pngimages is True:
-
-                plotting.save_image_plot(
-                    comb_area_map_recalc,
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
-                    + "/comb_area_map_recalc.png",
-                    cmap=plotting.colors.ListedColormap(
-                        plotting.region_colours, N=len(np.squeeze(reconstructed_maps))
-                    ),
-                )
+            plotting.save_image_plot(
+                comb_area_map_recalc,
+                get_loadsave_path(eval_params.save_foldername, cur_image_name) / Path("comb_area_map_recalc.png"),
+                cmap=plotting.colors.ListedColormap(
+                    plotting.region_colours, N=len(np.squeeze(reconstructed_maps))
+                ),
+            )
 
         if eval_params.save_params.seg_plot is True:
             if eval_params.save_params.pngimages is True:
@@ -475,9 +470,7 @@ def eval_second_step(
                     plotting.save_segmentation_plot(
                         cur_augment_image,
                         cm.gray,
-                        get_loadsave_path(eval_params.save_foldername, cur_image_name)
-                        + "/"
-                        + "seg_plot.png",
+                        get_loadsave_path(eval_params.save_foldername, cur_image_name) / Path("seg_plot.png"),
                         cur_seg,
                         delineations,
                         column_range=eval_params.col_error_range,
@@ -485,23 +478,21 @@ def eval_second_step(
                     plotting.save_segmentation_plot(
                         cur_augment_image,
                         cm.gray,
-                        get_loadsave_path(eval_params.save_foldername, cur_image_name)
-                        + "/"
-                        + "truth_plot.png",
+                        get_loadsave_path(eval_params.save_foldername, cur_image_name) / Path("truth_plot.png"),
                         cur_seg,
                         predictions=None,
                         column_range=eval_params.col_error_range,
                     )
 
-                plotting.save_segmentation_plot(
-                    cur_augment_image,
-                    cm.gray,
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
-                    / Path("delin_plot.png"),
-                    delineations,
-                    predictions=None,
-                    column_range=eval_params.col_error_range,
-                )
+            plotting.save_segmentation_plot(
+                cur_augment_image,
+                cm.gray,
+                get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                / Path("delin_plot.png"),
+                delineations,
+                predictions=None,
+                column_range=eval_params.col_error_range,
+            )
 
         if eval_params.save_params.indiv_seg_plot is True:
             if eval_params.save_params.pngimages is True:
@@ -901,25 +892,25 @@ def intermediate_save_semantic(
         save_dataset_extra(
             eval_params, cur_image_name, "raw_image", "uint8", cur_raw_image
         )
+        if cur_raw_image.shape[2] == 3:
+            plotting.save_image_plot(
+                cur_raw_image,
+                get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                + "/raw_image.png",
+                cmap=None,
+                vmin=0,
+                vmax=255,
+            )
+        else:
+            plotting.save_image_plot(
+                cur_raw_image,
+                get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                / Path("raw_image.png"),
+                cmap=cm.gray,
+                vmin=0,
+                vmax=255,
+            )
         if eval_params.save_params.pngimages is True:
-            if cur_raw_image.shape[2] == 3:
-                plotting.save_image_plot(
-                    cur_raw_image,
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
-                    + "/raw_image.png",
-                    cmap=None,
-                    vmin=0,
-                    vmax=255,
-                )
-            else:
-                plotting.save_image_plot(
-                    cur_raw_image,
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
-                    / Path("raw_image.png"),
-                    cmap=cm.gray,
-                    vmin=0,
-                    vmax=255,
-                )
             if eval_params.save_params.crop_map is True:
                 plotting.save_image_plot_crop(
                     cur_raw_image,
@@ -1625,8 +1616,6 @@ def soft_dice_numpy_multiple(y_pred, y_true, eps=1e-7):
     axes = tuple(range(2, len(y_pred.shape)))
     intersect = np.sum(y_pred * y_true, axis=axes)
     denom = np.sum(y_pred + y_true, axis=axes)
-
-    print(intersect.shape)
 
     for j in range(intersect.shape[0]):
         for i in range(intersect.shape[1]):

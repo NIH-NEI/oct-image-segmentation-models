@@ -61,7 +61,6 @@ class SaveParameters:
         ret_seg_plot=False,
         area_maps=False,
         comb_area_maps=False,
-        comb_area_maps_recalc=False,
         attributes=True,
         raw_image=False,
         aug_image=False,
@@ -92,7 +91,6 @@ class SaveParameters:
         self.seg_plot = seg_plot
         self.area_maps = area_maps
         self.comb_area_maps = comb_area_maps
-        self.comb_area_maps_recalc = comb_area_maps_recalc
         self.attributes = attributes
         self.raw_image = raw_image
         self.aug_image = aug_image
