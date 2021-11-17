@@ -354,7 +354,7 @@ def eval_second_step(
     eval_params: eparams.EvaluationParameters,
     prob_maps,
     cur_seg,
-    cur_image_name,
+    cur_image_name: Path,
     cur_augment_image,
     cur_augment_label,
     imdb,
@@ -762,7 +762,7 @@ def print_error_summary(overall_errors, imdb, cur_image_name):
 
     # overall errors: list of four numpy arrays: [mean abs error, mean error, abs error sd, error sd]
     print("\n")
-    print("Error summary for image: " + cur_image_name)
+    print("Error summary for image: " + str(cur_image_name))
     print("_" * 92)
     print(
         "BOUNDARY".center(30)
@@ -929,8 +929,7 @@ def intermediate_save_semantic(
             if eval_params.save_params.pngimages is True:
                 plotting.save_image_plot(
                     np.argmax(cur_labels, axis=2),
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
-                    + "/comb_raw_label.png",
+                    get_loadsave_path(eval_params.save_foldername, cur_image_name) / Path("comb_raw_label.png"),
                     cmap=plotting.colors.ListedColormap(
                         plotting.region_colours, N=len(area_maps)
                     ),

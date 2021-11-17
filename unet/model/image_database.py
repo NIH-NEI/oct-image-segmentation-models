@@ -1,14 +1,15 @@
-import numpy as np
+from __future__ import annotations
 
+import h5py
+from keras.applications import imagenet_utils
 import keras.backend as K
 import keras
-import h5py
-
-from keras.applications import imagenet_utils
+import numpy as np
+from pathlib import Path
 
 
 class ImageDatabase:
-    def __init__(self, images, labels, patch_labels=None, segs=None, image_names=None, boundary_names=None,
+    def __init__(self, images, labels, patch_labels=None, segs=None, image_names: Path=None, boundary_names=None,
                  area_names=None, patch_class_names=None, fullsize_class_names=None,
                  image_range=None, filename=None, name=None, num_classes=None,
                  dim_inds=None, dim_names=None, mode_type=None, set=None, padding=None, dim_ordering=None, ram_load=1, reps_channels=None,
@@ -131,7 +132,7 @@ class ImageDatabase:
         if self.ram_load == 1 and self.imagenet is True:
             self.images = imagenet_utils.preprocess_input(self.images, data_format=None, mode='tf')
 
-    def get_image_names_range(self):
+    def get_image_names_range(self) -> Path | None:
         if self.image_names is not None:
             return self.image_names[self.start_image_ind:self.end_image_ind]
         else:

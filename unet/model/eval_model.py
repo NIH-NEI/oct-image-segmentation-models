@@ -1,5 +1,8 @@
-from keras.utils import to_categorical
+from __future__ import annotations
+
 import h5py
+from keras.utils import to_categorical
+from pathlib import Path
 
 from unet.model import augmentation as aug
 from unet.model import dataset_construction as dc
@@ -10,27 +13,28 @@ from unet.model import image_database as imdb
 from unet.model import save_parameters
 
 
-def evaluate_model_from_hdf5(model_file_path, test_dataset_file):
+def evaluate_model_from_hdf5(model_file_path, test_dataset_file, output_path: Path):
     test_hdf5_file = h5py.File(test_dataset_file, 'r')
 
     test_images, test_segs, test_image_names = dl.load_testing_data(
         test_hdf5_file
     )
 
-    evaluate_model(model_file_path, test_images, test_image_names, test_segs)
+    test_image_names = [ Path(x) for x in test_image_names ]
+    evaluate_model(model_file_path, test_images, test_image_names, True, output_path, test_segs)
 
 
 def evaluate_model(
     model_file_path,
     test_images,
-    test_image_names,
+    test_image_names: list[Path],
     is_evaluate,
-    output_path,
+    output_path: Path,
     test_segments=None
 ):
 
     test_labels = None
-    if test_segments:
+    if not test_segments is None:
         test_labels = dc.create_all_area_masks(test_images, test_segments)
         test_labels = to_categorical(test_labels, cfg.NUM_CLASSES)
 
@@ -58,7 +62,7 @@ def evaluate_model(
         model_file_path,
         is_evaluate,
         save_parameters.SaveParameters(
-            pngimages=False,
+            pngimages=is_evaluate,
             raw_image=True,
             raw_labels=True,
             temp_extra=True,
