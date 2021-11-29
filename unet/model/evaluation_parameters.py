@@ -1,4 +1,9 @@
+from pathlib import Path
+import tensorflow as tf
+
 from unet.model import augmentation as aug
+from unet.model import custom_losses
+from unet.model import custom_metrics
 from unet.model import save_parameters as sparams
 
 
@@ -83,11 +88,9 @@ class EvaluationParameters:
         """
     def __init__(
         self,
-        loaded_model,
-        model_filename,
-        network_foldername,
-        dataname,
-        graph_structure,
+        model_file_path: Path,
+        dataset_file_path: Path,
+        is_evaluate: bool,
         col_error_range,
         save_foldername,
         eval_mode='both',
@@ -104,6 +107,7 @@ class EvaluationParameters:
         trim_maps=False,
         trim_ref_ind=0,
         trim_window=(0, 0),
+        collate_results=True,
         dice_errors=True,
         flatten_image=False,
         flatten_ind=0,
@@ -117,14 +121,12 @@ class EvaluationParameters:
         use_thresh=False,
         thresh=0.5
     ):
-        self.loaded_model = loaded_model
-        self.model_filename = model_filename
-        self.network_foldername = network_foldername
-
+        self.model_file_path = model_file_path
+        self.dataset_file_path = dataset_file_path
+        self.is_evaluate = is_evaluate
         self.binarize = binarize
         self.binarize_after = binarize_after
 
-        self.dataname = dataname
         self.eval_mode = eval_mode
         self.aug_fn_arg = aug_fn_arg
         self.patch_size = patch_size
@@ -139,12 +141,12 @@ class EvaluationParameters:
         self.trim_maps = trim_maps
         self.trim_ref_ind = trim_ref_ind
         self.trim_window = trim_window
+        self.collate_results = collate_results
         self.dice_errors = dice_errors
         self.flatten_image = flatten_image
         self.flatten_ind = flatten_ind
         self.flatten_poly = flatten_poly
 
-        self.graph_structure = graph_structure
         self.flatten_pred_edges = flatten_pred_edges
         self.flat_marg = flat_marg
 
@@ -160,6 +162,14 @@ class EvaluationParameters:
         self.gsgrad = gsgrad
 
         self.save_foldername = save_foldername
+
+        custom_objects = dict(
+            list(custom_losses.custom_loss_objects.items())
+            + list(custom_metrics.custom_metric_objects.items())
+        )
+
+        self.loaded_model = tf.keras.models.load_model(model_file_path, custom_objects=custom_objects)
+        self.num_classes = self.loaded_model.output.shape[-1]
 
         if self.verbosity >= 1:
             self.predict_verbosity = 1
