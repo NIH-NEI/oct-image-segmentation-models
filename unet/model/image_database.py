@@ -11,7 +11,7 @@ from pathlib import Path
 class ImageDatabase:
     def __init__(self, images, labels, patch_labels=None, segs=None, image_names: Path=None, boundary_names=None,
                  area_names=None, patch_class_names=None, fullsize_class_names=None,
-                 image_range=None, filename=None, name=None, num_classes=None,
+                 image_range=None, filename: Path=None, name=None, num_classes=None,
                  dim_inds=None, dim_names=None, mode_type=None, set=None, padding=None, dim_ordering=None, ram_load=1, reps_channels=None,
                  imagenet=False, open_filename=None, imdb1=None, imdb2=None):
 
@@ -25,7 +25,7 @@ class ImageDatabase:
         self.fullsize_class_names = fullsize_class_names
         self.segs = segs
         if filename is not None:
-            self.filename = filename.split("/")[-1]
+            self.filename = filename.name
         else:
             self.filename = filename
         self.name = name

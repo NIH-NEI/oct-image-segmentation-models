@@ -1,9 +1,17 @@
-import numpy as np
 import os
+
 import h5py
+import numpy as np
+from pathlib import Path
 
 
-def calc_overall_dataset_errors(folder_path, inc_boundary_errors=True, inc_dice=True, inc_recon_dice=False):
+def calc_overall_dataset_errors(
+    folder_path: Path,
+    inc_boundary_errors=True,
+    inc_dice=True,
+    inc_recon_dice=False,
+):
+
     dir_list = os.listdir(folder_path)
 
     errors = None
@@ -12,8 +20,8 @@ def calc_overall_dataset_errors(folder_path, inc_boundary_errors=True, inc_dice=
     obj_names = []
 
     for obj_name in dir_list:
-        if os.path.isdir(folder_path + '/' + obj_name):
-            filename = folder_path + '/' + obj_name + '/evaluations.hdf5'
+        if os.path.isdir(folder_path / Path(obj_name)):
+            filename = folder_path / Path(obj_name) / Path("evaluations.hdf5")
 
             if os.path.exists(filename):
                 file = h5py.File(filename, 'r')
@@ -48,10 +56,10 @@ def calc_overall_dataset_errors(folder_path, inc_boundary_errors=True, inc_dice=
                 # no evaluations file in this folder
                 pass
 
-    save_filename = folder_path + "/results.hdf5"
+    save_filename = folder_path / Path("results.hdf5")
     save_file = h5py.File(save_filename, 'w')
 
-    save_textfilename = folder_path + "/results.csv"
+    save_textfilename = folder_path / Path("results.csv")
     save_textfile = open(save_textfilename, 'w')
 
     save_file['image_names'] = np.array(obj_names, dtype='S100')

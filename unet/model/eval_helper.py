@@ -3,7 +3,6 @@ import sys
 import time
 
 import h5py
-from keras.models import load_model
 import keras.backend as K
 from keras.utils import to_categorical
 from matplotlib import cm
@@ -12,8 +11,6 @@ from pathlib import Path
 
 from unet.model import augmentation as aug
 from unet.model import common
-from unet.model import custom_metrics
-from unet.model import custom_losses
 from unet.model import data_generator
 from unet.model import dataset_construction as datacon
 from unet.model import evaluation_output as eoutput
@@ -26,102 +23,20 @@ from unet.model import results_collation
 
 def evaluate_network(
     imdb,
-    model_file_path,
-    is_evaluate,
-    save_params,
-    save_foldername,
-    gsgrad=1,
-    eval_mode="both",
-    aug_fn_arg=(aug.no_aug, {}),
-    col_error_range=None,
-    transpose=False,
-    normalise_input=True,
-    comb_pred=False,
-    verbosity=3,
-    recalc_errors=False,
-    boundaries=True,
-    boundary_errors=True,
-    dice_errors=True,
-    loaded_model=None,
-    trim_maps=False,
-    trim_ref_ind=0,
-    trim_window=(0, 0),
-    collate_results=True,
-    flatten_image=False,
-    flatten_ind=0,
-    flatten_poly=False,
-    binarize=True,
-    binarize_after=True,
-    bg_ilm=True,
-    bg_csi=False,
-    flatten_pred_edges=False,
-    flat_marg=0,
-    use_thresh=False,
-    thresh=0.5,
+    eval_params,
 ):
-    model_filename = os.path.basename(model_file_path)
-    network_foldername = os.path.dirname(model_file_path) + "/"
 
-    custom_objects = dict(
-        list(custom_losses.custom_loss_objects.items())
-        + list(custom_metrics.custom_metric_objects.items())
-    )
-
-    loaded_model = load_model(model_file_path, custom_objects=custom_objects)
-
-    if col_error_range is None:
-        col_error_range = range(imdb.image_width)
-
-    graph_structure = graph_search.create_graph_structure(
-        (imdb.image_width, imdb.image_height), max_grad=gsgrad
-    )
-
-    eval_params = eparams.EvaluationParameters(
-        loaded_model,
-        model_filename,
-        network_foldername,
-        imdb.filename,
-        graph_structure,
-        col_error_range,
-        save_foldername,
-        eval_mode=eval_mode,
-        aug_fn_arg=aug_fn_arg,
-        save_params=save_params,
-        verbosity=verbosity,
-        gsgrad=gsgrad,
-        transpose=transpose,
-        normalise_input=normalise_input,
-        comb_pred=comb_pred,
-        recalc_errors=recalc_errors,
-        boundaries=boundaries,
-        trim_maps=trim_maps,
-        trim_ref_ind=trim_ref_ind,
-        trim_window=trim_window,
-        dice_errors=dice_errors,
-        flatten_image=flatten_image,
-        flatten_ind=flatten_ind,
-        flatten_poly=flatten_poly,
-        binarize=binarize,
-        binarize_after=binarize_after,
-        bg_ilm=bg_ilm,
-        bg_csi=bg_csi,
-        flatten_pred_edges=flatten_pred_edges,
-        flat_marg=flat_marg,
-        use_thresh=use_thresh,
-        thresh=thresh,
-    )
-
-    if save_params.disable is False:
+    if eval_params.save_params.disable is False:
         if not os.path.exists(eval_params.save_foldername):
             os.makedirs(eval_params.save_foldername)
 
-    if save_params.disable is False:
+    if eval_params.save_params.disable is False:
         save_eval_config_file(eval_params, imdb)
 
-    eval_outputs = evaluate_semantic_network(eval_params, imdb, is_evaluate)
+    eval_outputs = evaluate_semantic_network(eval_params, imdb)
 
-    if not save_params.disable and collate_results and is_evaluate:
-        if eval_mode == "network" or boundaries is False or boundary_errors is False:
+    if not eval_params.save_params.disable and eval_params.collate_results and eval_params.is_evaluate:
+        if eval_params.eval_mode == "network" or eval_params.boundaries is False or eval_params.boundary_errors is False:
             inc_boundary_errors = False
         else:
             inc_boundary_errors = True
@@ -129,13 +44,13 @@ def evaluate_network(
         results_collation.calc_overall_dataset_errors(
             eval_params.save_foldername,
             inc_boundary_errors=inc_boundary_errors,
-            inc_dice=dice_errors,
+            inc_dice=eval_params.dice_errors,
         )
 
-    return [eval_params, eval_outputs]
+    return eval_outputs
 
 
-def evaluate_semantic_network(eval_params, imdb, is_evaluate):
+def evaluate_semantic_network(eval_params, imdb):
     # pass images to network one at a time
     for ind in imdb.image_range:
         eval_output = eoutput.EvaluationOutput()
@@ -144,7 +59,7 @@ def evaluate_semantic_network(eval_params, imdb, is_evaluate):
         cur_label = imdb.get_label(ind)
         cur_image_name = str(imdb.get_image_name(ind))
         cur_seg = None
-        if is_evaluate:
+        if eval_params.is_evaluate:
             cur_seg = imdb.get_seg(ind)
 
         eval_output.raw_image = cur_raw_image
@@ -249,7 +164,7 @@ def evaluate_semantic_network(eval_params, imdb, is_evaluate):
         end_convert_time = time.time()
         convert_time = end_convert_time - start_convert_time
 
-        if is_evaluate and eval_params.dice_errors is True:
+        if eval_params.is_evaluate and eval_params.dice_errors is True:
             dices = calc_dice(eval_params, area_maps, labels)
         else:
             dices = None
@@ -280,7 +195,6 @@ def evaluate_semantic_network(eval_params, imdb, is_evaluate):
                 convert_time,
                 activations,
                 layer_outputs,
-                is_evaluate,
             )
 
         if eval_params.boundaries is True and (
@@ -300,14 +214,14 @@ def evaluate_semantic_network(eval_params, imdb, is_evaluate):
             )
 
             if (
-                is_evaluate
+                eval_params.is_evaluate
                 and eval_params.save_params.disable is False
                 and eval_params.save_params.boundary_maps is True
             ):
                 boundary_maps = load_dataset_extra(
                     eval_params, cur_image_name, "boundary_maps"
                 )
-                if is_evaluate and eval_params.dice_errors is True:
+                if eval_params.is_evaluate and eval_params.dice_errors is True:
                     dices = load_dataset(eval_params, cur_image_name, "dices")
                 else:
                     dices = None
@@ -322,7 +236,6 @@ def evaluate_semantic_network(eval_params, imdb, is_evaluate):
                 augment_label,
                 imdb,
                 dices,
-                is_evaluate,
                 eval_output,
             )
 
@@ -359,16 +272,22 @@ def eval_second_step(
     cur_augment_label,
     imdb,
     dices,
-    is_evaluate,
     eval_output,
 ):
     if eval_params.verbosity >= 2:
         print("Running graph search, segmenting boundary maps...")
 
     truths = cur_seg
+    graph_structure = graph_search.create_graph_structure(
+        (imdb.image_width, imdb.image_height), max_grad=eval_params.gsgrad
+    )
+
     start_graph_time = time.time()
     delineations, errors, trim_maps = graph_search.segment_maps(
-        prob_maps, truths, eval_params
+        prob_maps,
+        truths,
+        graph_structure,
+        eval_params
     )
 
     reconstructed_maps = datacon.create_area_mask(cur_augment_image, delineations)
@@ -379,7 +298,7 @@ def eval_second_step(
 
     [comb_area_map_recalc, reconstructed_maps] = perform_argmax(reconstructed_maps)
 
-    if is_evaluate and eval_params.dice_errors == True:
+    if eval_params.is_evaluate and eval_params.dice_errors == True:
         recalc_dices = calc_dice(
             eval_params, reconstructed_maps, np.expand_dims(cur_augment_label, axis=0)
         )
@@ -727,7 +646,7 @@ def save_eval_config_file(eval_params, imdb):
     config_file = h5py.File(str(eval_params.save_foldername) + "/config.hdf5", "w")
 
     config_file.attrs["model_filename"] = np.array(
-        eval_params.model_filename, dtype="S100"
+        eval_params.model_file_path.name, dtype="S100"
     )
     config_file.attrs["data_filename"] = np.array(imdb.filename, dtype="S100")
 
@@ -831,7 +750,6 @@ def intermediate_save_semantic(
     convert_time,
     activations,
     layer_outputs,
-    is_evaluate,
 ):
     if eval_params.save_params.area_maps is True:
         save_dataset_extra(eval_params, cur_image_name, "area_maps", "uint8", area_maps)
@@ -922,7 +840,7 @@ def intermediate_save_semantic(
                     vmax=255,
                 )
     if eval_params.save_params.raw_labels is True:
-        if is_evaluate:
+        if eval_params.is_evaluate:
             save_dataset_extra(
                 eval_params, cur_image_name, "raw_labels", "uint8", cur_labels
             )
@@ -1268,10 +1186,10 @@ def save_intermediate_attributes_semantic(
 
     loadsave_file.attrs["aug_desc"] = np.array(eval_params.aug_desc, dtype="S100")
     loadsave_file.attrs["model_filename"] = np.array(
-        eval_params.model_filename, dtype="S100"
+        eval_params.model_file_path.name, dtype="S100"
     )
     loadsave_file.attrs["network_foldername"] = np.array(
-        eval_params.network_foldername, dtype="S100"
+        eval_params.model_file_path.parent, dtype="S100"
     )
     loadsave_file.attrs["data_filename"] = np.array(imdb.filename, dtype="S100")
     loadsave_file.attrs["predict_time"] = np.array(predict_time)
@@ -1304,10 +1222,10 @@ def save_intermediate_attributes_patch_based(
 
     loadsave_file.attrs["aug_desc"] = np.array(eval_params.aug_desc, dtype="S100")
     loadsave_file.attrs["model_filename"] = np.array(
-        eval_params.model_filename, dtype="S100"
+        eval_params.model_file_path.name, dtype="S100"
     )
     loadsave_file.attrs["network_foldername"] = np.array(
-        eval_params.network_foldername, dtype="S100"
+        eval_params.model_file_path.parent, dtype="S100"
     )
     loadsave_file.attrs["data_filename"] = np.array(imdb.filename, dtype="S100")
     loadsave_file.attrs["patch_size"] = np.array(eval_params.patch_size)
@@ -1387,10 +1305,10 @@ def save_intermediate_attributes_allimages(
 
     loadsave_file.attrs["aug_desc"] = np.array(eval_params.aug_desc, dtype="S100")
     loadsave_file.attrs["model_filename"] = np.array(
-        eval_params.model_filename, dtype="S100"
+        eval_params.model_file_path.name, dtype="S100"
     )
     loadsave_file.attrs["network_foldername"] = np.array(
-        eval_params.network_foldername, dtype="S100"
+        eval_params.model_file_path.parent, dtype="S100"
     )
     loadsave_file.attrs["data_filename"] = np.array(imdb.filename, dtype="S100")
     loadsave_file.attrs["predict_time"] = np.array(predict_time)

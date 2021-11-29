@@ -1,11 +1,13 @@
-import keras
-import time
 import os
+import time
+
 import h5py
+import keras
+from pathlib import Path
 
 
 class SaveEpochInfo(keras.callbacks.Callback):
-    def __init__(self, save_folder, train_params, train_imdb):
+    def __init__(self, save_folder: Path, train_params, train_imdb):
         super(SaveEpochInfo, self).__init__()
         self.train_losses = []
         self.train_accs = []
@@ -30,7 +32,7 @@ class SaveEpochInfo(keras.callbacks.Callback):
 
         self.network_name = train_params.network_model[1]
         self.save_folder = save_folder
-        self.plotpath = save_folder + '/performance_plot.png'
+        self.plotpath = save_folder / Path("performance_plot.png")
         self.num_epochs = train_params.epochs
 
     def on_train_begin(self, logs=None):
@@ -54,7 +56,7 @@ class SaveEpochInfo(keras.callbacks.Callback):
         self.val_accs.append(logs.get('val_' + self.acc_name))
         self.epoch_times.append(time.time() - self.start_epoch_time)
 
-        stats_epoch_file = h5py.File(self.save_folder + "/stats_epoch{:02d}.hdf5".format(epoch + 1), 'w')
+        stats_epoch_file = h5py.File(self.save_folder / Path("stats_epoch{:02d}.hdf5".format(epoch + 1)), 'w')
         stats_epoch_file["train_acc"] = self.train_accs
         stats_epoch_file["val_acc"] = self.val_accs
         stats_epoch_file["train_loss"] = self.train_losses
@@ -62,7 +64,7 @@ class SaveEpochInfo(keras.callbacks.Callback):
         stats_epoch_file["epoch_time"] = self.epoch_times
         stats_epoch_file.close()
 
-        prev_stats_file = self.save_folder + "/stats_epoch{:02d}.hdf5".format(epoch)
+        prev_stats_file = self.save_folder / Path("stats_epoch{:02d}.hdf5".format(epoch))
 
         if os.path.isfile(prev_stats_file):
             try:

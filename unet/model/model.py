@@ -179,3 +179,15 @@ def unet(start_neurons, pool_layers, conv_layers, enc_kernel, dec_kernel, input_
     model_desc_short = "U-net"
 
     return [Model(inputs=inp, outputs=o), model_desc, model_desc_short]
+
+
+def get_standard_model(input_channels, num_classes):
+    return unet(
+        8,
+        4,
+        2,
+        (3, 3),
+        (2, 2),
+        input_channels=input_channels,
+        output_channels=num_classes,
+    )

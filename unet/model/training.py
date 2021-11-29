@@ -1,16 +1,36 @@
-import tensorflow as tf
-import data_generator as data_gen
-from keras.callbacks import ModelCheckpoint, TensorBoard
-import h5py
 import os
+
+import h5py
+from keras.callbacks import ModelCheckpoint, TensorBoard
+from keras.utils import to_categorical
+import keras.optimizers
+import logging as log
 import numpy as np
-import common
-import training_callbacks
-import training_config as training_cfg
+import tensorflow as tf
+from pathlib import Path
+
+from unet.model import augmentation as aug
+from unet.model import common
+from unet.model import custom_losses
+from unet.model import custom_metrics
+from unet.model import image_database as imdb
+from unet.model import data_generator as data_gen
+from unet.model import dataset_loader
+from unet.model import dataset_construction
+from unet.model import model
+from unet.model import training_callbacks
+from unet.model import training_parameters as tparams
 
 
-def save_config_file(save_foldername, model_name, timestamp, train_params, train_imdb, val_imdb, opt):
-    config_filename = save_foldername + "/config.hdf5"
+def save_config_file(
+    save_foldername: Path,
+    model_name,
+    timestamp,
+    train_params,
+    train_imdb,
+    val_imdb,
+    opt):
+    config_filename = save_foldername / Path("config.hdf5")
 
     config_file = h5py.File(config_filename, 'w')
 
@@ -147,31 +167,34 @@ def train_network(train_imdb, val_imdb, train_params):
         dataset_name = train_imdb.name
 
         timestamp = common.get_timestamp()
-        save_foldername = training_cfg.RESULTS_LOCATION + timestamp + "_" + model_name_short + "_" + dataset_name
+
+        results_location = train_params.results_location
+        save_foldername = results_location / Path(timestamp + "_" + model_name_short + "_" + dataset_name)
 
         if not os.path.exists(save_foldername):
             os.makedirs(save_foldername)
         else:
             count = 2
-            testsave_foldername = training_cfg.RESULTS_LOCATION + timestamp + "_" + str(count) + "_" + model_name_short + "_" + dataset_name
+            testsave_foldername = results_location / Path(timestamp + "_" + str(count) + "_" + model_name_short + "_" + dataset_name)
             while os.path.exists(testsave_foldername):
                 count += 1
-                testsave_foldername = training_cfg.RESULTS_LOCATION + timestamp + "_" + str(count) + "_" + model_name_short + "_" + dataset_name
+                testsave_foldername = results_location / Path(timestamp + "_" + str(count) + "_" + model_name_short + "_" + dataset_name)
 
             save_foldername = testsave_foldername
             os.makedirs(save_foldername)
 
         epoch_model_name = "model_epoch{epoch:02d}.hdf5"
 
-        savemodel = ModelCheckpoint(filepath=save_foldername + "/" + epoch_model_name, save_best_only=save_best,
+        savemodel = ModelCheckpoint(filepath=save_foldername / Path(epoch_model_name), save_best_only=save_best,
                                     monitor=monitor[0], mode=monitor[1])
 
-        history = training_callbacks.SaveEpochInfo(save_folder=save_foldername,
-                                train_params=train_params,
-                                train_imdb=train_imdb)
+        history = training_callbacks.SaveEpochInfo(
+            save_folder=save_foldername,
+            train_params=train_params,
+            train_imdb=train_imdb)
 
         if use_tensorboard is True:
-            tensorboard = TensorBoard(log_dir=save_foldername + "/tensorboard", write_grads=False, write_graph=False,
+            tensorboard = TensorBoard(log_dir=save_foldername / Path("tensorboard"), write_grads=False, write_graph=False,
                                       write_images=True, histogram_freq=1, batch_size=batch_size)
             callbacks_list = [savemodel, history, tensorboard]
         else:
@@ -207,3 +230,62 @@ def train_network(train_imdb, val_imdb, train_params):
                 model_info = model.fit(x=x_train, y=y_train, batch_size=batch_size, epochs=epochs, verbose=1,
                                        callbacks=callbacks_list, validation_data=[x_val, y_val], shuffle=True,
                                        class_weight=train_params.class_weight)
+
+
+def train_model(
+    training_data: Path,
+    training_params: tparams.TrainingParams
+):
+    if training_params.channels_last:
+        keras.backend.set_image_data_format("channels_last")
+
+    training_hdf5_file = h5py.File(training_data, "r")
+
+    # images numpy array should be of the shape: (number of images, image width, image height, 1)
+    # segments numpy array should be of the shape: (number of images, number of boundaries, image width)
+    train_images, train_labels, train_segs = dataset_loader.load_training_data(training_hdf5_file)
+    val_images, val_labels, val_segs = dataset_loader.load_validation_data(training_hdf5_file)
+
+    if train_segs:
+        log.info("Found 'train_segs' in HDF5 dataset so constructing labels from them")
+        train_labels = dataset_construction.create_all_area_masks(train_images, train_segs)
+        val_labels = dataset_construction.create_all_area_masks(val_images, val_segs)
+
+    num_classes = training_params.num_classes
+    training_dataset_name = training_params.training_dataset_name
+    train_labels = to_categorical(train_labels, num_classes)
+    val_labels = to_categorical(val_labels, num_classes)
+
+    train_imdb = imdb.ImageDatabase(
+        images=train_images,
+        labels=train_labels,
+        name=training_dataset_name,
+        filename=training_data,
+        mode_type="fullsize",
+        num_classes=training_params.num_classes,
+    )
+
+    val_imdb = imdb.ImageDatabase(
+        images=val_images,
+        labels=val_labels,
+        name=training_params.training_dataset_name,
+        filename=training_data,
+        mode_type="fullsize",
+        num_classes=num_classes,
+    )
+
+    if training_params.batch_size > train_images.shape[0]:
+        log.error(
+            f"The batch size ({batch_size}) cannot be larger than the number of training samples \
+                ({train_images.shape[0]})"
+        )
+        exit(1)
+
+    if training_params.batch_size > val_images.shape[0]:
+        log.error(
+            f"The batch size ({batch_size}) cannot be larger than the number of validation samples \
+                ({val_images.shape[0]})"
+        )
+        exit(1)
+
+    train_network(train_imdb, val_imdb, training_params)

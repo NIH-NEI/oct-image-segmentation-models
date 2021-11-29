@@ -477,7 +477,7 @@ def calc_errors(prediction, truth):
     return error
 
 
-def segment_maps(prob_maps, truths, eval_params=None, graph_structure=None):
+def segment_maps(prob_maps, truths, graph_structure, eval_params=None):
     """Delineate boundaries using specified neighbours structure for a number of probability maps
     and subsequently calculate delineation errors.
     _________
@@ -504,9 +504,6 @@ def segment_maps(prob_maps, truths, eval_params=None, graph_structure=None):
     and true value for each column for each map
     _________
     """
-
-    if eval_params is not None:
-        graph_structure = eval_params.graph_structure
 
     prob_maps.astype("float64")
     prob_maps = prob_maps / 255
