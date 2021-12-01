@@ -1,12 +1,13 @@
 import os
 
 import h5py
-from keras.callbacks import ModelCheckpoint, TensorBoard
-from keras.utils import to_categorical
-import keras.optimizers
+
 import logging as log
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
+from tensorflow.keras.utils import to_categorical
+import tensorflow.keras.optimizers
 from pathlib import Path
 
 from unet.model import augmentation as aug
@@ -237,7 +238,7 @@ def train_model(
     training_params: tparams.TrainingParams
 ):
     if training_params.channels_last:
-        keras.backend.set_image_data_format("channels_last")
+        tf.keras.backend.set_image_data_format("channels_last")
 
     training_hdf5_file = h5py.File(training_data, "r")
 

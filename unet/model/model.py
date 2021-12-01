@@ -1,7 +1,8 @@
-from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate
-from keras.layers import Dropout, BatchNormalization, Input, Activation, Add, GlobalAveragePooling2D, Reshape, Dense, multiply, Permute, maximum
-from keras import backend as K
-from keras.models import Model
+from tensorflow.keras.layers import (Activation, Add, BatchNormalization, concatenate, Conv2D, Dense,
+    Dropout, GlobalAveragePooling2D, Input, maximum, MaxPooling2D, multiply, Permute, Reshape,
+    UpSampling2D)
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import Model
 
 
 def batch_activate(x):

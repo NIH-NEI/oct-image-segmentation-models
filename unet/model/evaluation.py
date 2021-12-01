@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import h5py
-from keras.utils import to_categorical
 import logging as log
 from pathlib import Path
+from tensorflow.keras.utils import to_categorical
 
 from unet.model import augmentation as aug
 from unet.model import dataset_construction as dc
