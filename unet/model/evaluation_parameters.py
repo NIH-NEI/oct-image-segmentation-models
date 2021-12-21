@@ -1,10 +1,25 @@
+from __future__ import annotations
+
 from pathlib import Path
+import numpy as np
 import tensorflow as tf
 
 from unet.model import augmentation as aug
 from unet.model import custom_losses
 from unet.model import custom_metrics
 from unet.model import save_parameters as sparams
+
+
+class PredictionDataset:
+    def __init__(
+        self,
+        prediction_images: np.array,
+        prediction_images_names: list[Path],
+        prediction_images_ouptut: list[Path]
+    ):
+        self.prediction_images = prediction_images
+        self.prediction_images_names = prediction_images_names
+        self.prediction_images_ouptut = prediction_images_ouptut
 
 
 class EvaluationParameters:
@@ -89,7 +104,7 @@ class EvaluationParameters:
     def __init__(
         self,
         model_file_path: Path,
-        dataset_file_path: Path,
+        prediction_dataset: PredictionDataset | Path,
         is_evaluate: bool,
         col_error_range,
         save_foldername,
@@ -122,7 +137,7 @@ class EvaluationParameters:
         thresh=0.5
     ):
         self.model_file_path = model_file_path
-        self.dataset_file_path = dataset_file_path
+        self.prediction_dataset = prediction_dataset
         self.is_evaluate = is_evaluate
         self.binarize = binarize
         self.binarize_after = binarize_after
