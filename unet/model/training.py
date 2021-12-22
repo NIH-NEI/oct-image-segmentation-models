@@ -18,9 +18,9 @@ from unet.model import image_database as imdb
 from unet.model import data_generator as data_gen
 from unet.model import dataset_loader
 from unet.model import dataset_construction
-from unet.model import model
 from unet.model import training_callbacks
 from unet.model import training_parameters as tparams
+from unet.model import unet
 
 
 def save_config_file(
@@ -115,9 +115,9 @@ def save_config_file(
     config_file.attrs["ram_load"] = train_imdb.ram_load
 
 
-def train_network(train_imdb, val_imdb, train_params):
+def train_network(train_imdb, val_imdb, model, train_params):
     with tf.device('/gpu:0'):
-        [model, model_name, model_name_short] = train_params.network_model
+        [model, model_name, model_name_short] = model
         optimizer_con = train_params.opt_con
         optimizer_params = train_params.opt_params
 
@@ -191,8 +191,10 @@ def train_network(train_imdb, val_imdb, train_params):
 
         history = training_callbacks.SaveEpochInfo(
             save_folder=save_foldername,
+            model_name=model_name,
             train_params=train_params,
-            train_imdb=train_imdb)
+            train_imdb=train_imdb
+        )
 
         if use_tensorboard is True:
             tensorboard = TensorBoard(log_dir=save_foldername / Path("tensorboard"), write_grads=False, write_graph=False,
@@ -234,13 +236,13 @@ def train_network(train_imdb, val_imdb, train_params):
 
 
 def train_model(
-    training_data: Path,
     training_params: tparams.TrainingParams
 ):
     if training_params.channels_last:
         tf.keras.backend.set_image_data_format("channels_last")
 
-    training_hdf5_file = h5py.File(training_data, "r")
+    training_dataset_path = training_params.training_dataset_path
+    training_hdf5_file = h5py.File(training_dataset_path, "r")
 
     # images numpy array should be of the shape: (number of images, image width, image height, 1)
     # segments numpy array should be of the shape: (number of images, number of boundaries, image width)
@@ -252,41 +254,55 @@ def train_model(
         train_labels = dataset_construction.create_all_area_masks(train_images, train_segs)
         val_labels = dataset_construction.create_all_area_masks(val_images, val_segs)
 
-    num_classes = training_params.num_classes
+    num_classes = len(np.unique(train_labels))
+    print(f"Detected {num_classes} classes")
+    input_channels = train_images.shape[-1]
+    print(f"Detected {input_channels} input channels")
     training_dataset_name = training_params.training_dataset_name
     train_labels = to_categorical(train_labels, num_classes)
     val_labels = to_categorical(val_labels, num_classes)
+
+    model = unet.get_standard_model(
+        input_channels=input_channels,
+        num_classes=num_classes,
+    )
 
     train_imdb = imdb.ImageDatabase(
         images=train_images,
         labels=train_labels,
         name=training_dataset_name,
-        filename=training_data,
+        filename=training_dataset_path,
         mode_type="fullsize",
-        num_classes=training_params.num_classes,
+        num_classes=num_classes,
     )
 
     val_imdb = imdb.ImageDatabase(
         images=val_images,
         labels=val_labels,
         name=training_params.training_dataset_name,
-        filename=training_data,
+        filename=training_dataset_path,
         mode_type="fullsize",
         num_classes=num_classes,
     )
 
-    if training_params.batch_size > train_images.shape[0]:
+    batch_size = training_params.batch_size
+    if batch_size > train_images.shape[0]:
         log.error(
-            f"The batch size ({batch_size}) cannot be larger than the number of training samples \
-                ({train_images.shape[0]})"
+            f"The batch size ({batch_size}) cannot be larger than the number of training samples " \
+                f"({train_images.shape[0]})"
         )
         exit(1)
 
-    if training_params.batch_size > val_images.shape[0]:
+    if batch_size > val_images.shape[0]:
         log.error(
-            f"The batch size ({batch_size}) cannot be larger than the number of validation samples \
-                ({val_images.shape[0]})"
+            f"The batch size ({batch_size}) cannot be larger than the number of validation samples "\
+                f"({val_images.shape[0]})"
         )
         exit(1)
 
-    train_network(train_imdb, val_imdb, training_params)
+    train_network(
+        train_imdb,
+        val_imdb,
+        model,
+        training_params
+    )

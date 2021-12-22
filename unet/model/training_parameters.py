@@ -10,13 +10,13 @@ class TrainingParams:
     """
     def __init__(
         self,
-        network_model,
+        training_dataset_path: Path,
+        training_dataset_name: str,
         results_location: Path,
-        training_dataset_name: Path,
-        num_classes: int,
         opt_con,
         opt_params,
-        loss, metric,
+        loss,
+        metric,
         epochs,
         batch_size,
         aug_fn_args=((aug.no_aug, {}),),
@@ -33,10 +33,9 @@ class TrainingParams:
         class_weight=None,
         channels_last: bool=True,
     ):
-        self.network_model = network_model
+        self.training_dataset_path = training_dataset_path
         self.training_dataset_name = training_dataset_name
         self.results_location = results_location
-        self.num_classes = num_classes
         self.opt_con = opt_con
         self.opt_params = opt_params
         self.loss = loss

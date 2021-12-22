@@ -7,7 +7,13 @@ from pathlib import Path
 
 
 class SaveEpochInfo(keras.callbacks.Callback):
-    def __init__(self, save_folder: Path, train_params, train_imdb):
+    def __init__(
+        self,
+        save_folder: Path,
+        model_name: str,
+        train_params,
+        train_imdb
+    ):
         super(SaveEpochInfo, self).__init__()
         self.train_losses = []
         self.train_accs = []
@@ -30,7 +36,7 @@ class SaveEpochInfo(keras.callbacks.Callback):
         else:
             self.loss_name = train_params.loss
 
-        self.network_name = train_params.network_model[1]
+        self.network_name = model_name
         self.save_folder = save_folder
         self.plotpath = save_folder / Path("performance_plot.png")
         self.num_epochs = train_params.epochs
