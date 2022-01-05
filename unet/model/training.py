@@ -255,9 +255,9 @@ def train_model(
         val_labels = dataset_construction.create_all_area_masks(val_images, val_segs)
 
     num_classes = len(np.unique(train_labels))
-    print(f"Detected {num_classes} classes")
+    log.info(f"Detected {num_classes} classes")
     input_channels = train_images.shape[-1]
-    print(f"Detected {input_channels} input channels")
+    log.info(f"Detected {input_channels} input channels")
     training_dataset_name = training_params.training_dataset_name
     train_labels = to_categorical(train_labels, num_classes)
     val_labels = to_categorical(val_labels, num_classes)
