@@ -17,8 +17,8 @@ from unet.model.evaluation_parameters import EvaluationParameters, PredictionDat
 def evaluate_model(
     eval_params: EvaluationParameters,
 ):
-    if type(eval_params.prediction_dataset) == Path:
-        test_dataset_file = h5py.File(eval_params.dataset_file_path, 'r')
+    if issubclass(type(eval_params.prediction_dataset), Path):
+        test_dataset_file = h5py.File(eval_params.prediction_dataset, 'r')
 
         test_images, test_labels, test_segments, test_image_names = dl.load_testing_data(
             test_dataset_file
