@@ -16,7 +16,7 @@ def get_version():
     return version
 
 def get_install_requires():
-    return ["Keras==2.4.3", "matplotlib", "tensorflow==2.4.1"]
+    return ["matplotlib", "tensorflow==2.7.0"]
 
 
 def get_long_description():
@@ -27,15 +27,15 @@ def main():
     version = get_version()
 
     setup(
-        name="unet",
+        name="oct_unet",
         version=version,
         packages=find_packages(),
         description="U-net model",
         long_description=get_long_description(),
         long_description_content_type="text/markdown",
         author="BioTeam, Inc.",
-        author_email="some_email@bioteam.net",
-        url="https://bioteam.net",
+        author_email="bruno@bioteam.net",
+        url="https://www.bioteam.net",
         install_requires=get_install_requires(),
         license="GPLv3",
         keywords="Image Segmentation, Machine Learning",

@@ -119,6 +119,7 @@ class EvaluationParameters:
         comb_pred=False,
         recalc_errors=False,
         boundaries=True,
+        boundary_errors=True,
         trim_maps=False,
         trim_ref_ind=0,
         trim_window=(0, 0),
@@ -153,6 +154,7 @@ class EvaluationParameters:
         self.comb_pred = comb_pred
         self.recalc_errors = recalc_errors
         self.boundaries = boundaries
+        self.boundary_errors = boundary_errors
         self.trim_maps = trim_maps
         self.trim_ref_ind = trim_ref_ind
         self.trim_window = trim_window

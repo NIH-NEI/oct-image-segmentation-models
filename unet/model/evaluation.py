@@ -39,6 +39,8 @@ def evaluate_model(
         if not test_segments is None:
             log.info("Found 'test_segs' in HDF5 dataset so constructing labels from them")
             test_labels = dc.create_all_area_masks(test_images, test_segments)
+        else:
+            log.info("'test_segs' not found. Using 'test_labels' struct in HDF5 dataset directly")
         test_labels = to_categorical(test_labels, eval_params.num_classes)
     else:
         test_labels = None

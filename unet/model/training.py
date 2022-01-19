@@ -249,7 +249,7 @@ def train_model(
     train_images, train_labels, train_segs = dataset_loader.load_training_data(training_hdf5_file)
     val_images, val_labels, val_segs = dataset_loader.load_validation_data(training_hdf5_file)
 
-    if train_segs:
+    if train_segs is not None:
         log.info("Found 'train_segs' in HDF5 dataset so constructing labels from them")
         train_labels = dataset_construction.create_all_area_masks(train_images, train_segs)
         val_labels = dataset_construction.create_all_area_masks(val_images, val_segs)
