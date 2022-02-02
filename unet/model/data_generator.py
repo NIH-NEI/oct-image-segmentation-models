@@ -1,3 +1,4 @@
+import logging as log
 import numpy as np
 from tensorflow import keras
 from math import floor
@@ -42,8 +43,19 @@ class BatchGenerator:
         _________
 
         """
-    def __init__(self, imdb, batch_size, aug_fn_args, aug_mode, aug_probs, aug_fly, shuffle=True, transpose=False,
-                 normalise=True, ram_load=1):
+    def __init__(
+        self,
+        imdb,
+        batch_size,
+        aug_fn_args,
+        aug_mode,
+        aug_probs,
+        aug_fly,
+        shuffle=True,
+        transpose=False,
+        normalise=True,
+        ram_load=1
+    ):
 
         self.shuffle = shuffle              # whether to shuffle the order that images are iterated
         self.transpose = transpose          # whether to swap rows and columns of batches
@@ -71,13 +83,18 @@ class BatchGenerator:
         if self.aug_mode == 'none':
             self.total_samples = self.total_raw_samples
             self.total_augs = 0
-        if self.aug_mode == 'all':
+        elif self.aug_mode == 'all':
             # want to combine all augmentations
             self.total_augs = len(self.aug_fn_args)
             self.total_samples = self.total_raw_samples * self.total_augs   # total samples (including augmentations)
-        elif aug_mode == 'one':
+        elif self.aug_mode == 'one':
             self.total_augs = len(self.aug_fn_args)
             self.total_samples = self.total_raw_samples
+        else:
+            log.error(
+                f"Unrecognized augmentation mode: {self.aug_mode}. "\
+                "Allowed values: 'none', 'one', 'all'. Exiting...")
+            exit(1)
 
         # create shape to be used to create the batch labels array
 
@@ -220,7 +237,8 @@ class BatchGenerator:
         return aug_image, aug_label
 
     def get_batch_list(self):
-        """Generate next batch of data
+        """
+        Generate next batch of data
             _________
 
             Returns: [batch_images, batch_labels]
@@ -230,7 +248,7 @@ class BatchGenerator:
             batch_labels: set of labels. shape: (batch_size, image width, image height) (semantic)
             or shape: (batch_size,) (patch based)
             _________
-            """
+        """
         batch_images = np.zeros((self.batch_size, self.imdb.image_width, self.imdb.image_height,
                                  self.imdb.num_channels), dtype='float32')
 
@@ -274,11 +292,11 @@ class BatchGenerator:
                 # labels are masks
                 batch_labels = np.transpose(batch_labels, axes=(0, 2, 1, 3))
 
-
         return [batch_images, batch_labels]
 
     def handle_epoch_end(self):
-        """Handle the end of the epoch by resetting the augmentation index, and the counters for number of batches
+        """
+        Handle the end of the epoch by resetting the augmentation index, and the counters for number of batches
             and number of images. If shuffle is enabled, shuffle the order of the raw images for the next epoch.
             _________
 
@@ -288,7 +306,7 @@ class BatchGenerator:
 
             aug_label: next label. shape: (image width, image height) (semantic) or shape: (1,) (patch based)
             _________
-            """
+        """
         self.batch_counter = 0
         self.full_counter = 0
         self.aug_counter = 0
@@ -303,13 +321,31 @@ class BatchGenerator:
 
 class DataGenerator(keras.utils.Sequence):
     """Generates data for Keras: see BatchGenerator for parameter details"""
-    def __init__(self, imdb, batch_size, aug_fn_args, aug_mode, aug_probs, aug_fly, shuffle=False, transpose=False,
-                 normalise=True, ram_load=1):
-        self.batch_gen = BatchGenerator(imdb=imdb, batch_size=batch_size,
-                                        aug_fn_args=aug_fn_args, aug_mode=aug_mode,
-                                        aug_probs=aug_probs, aug_fly=aug_fly, shuffle=shuffle, transpose=transpose,
-                                        normalise=normalise, ram_load=ram_load)
-
+    def __init__(
+        self,
+        imdb,
+        batch_size,
+        aug_fn_args,
+        aug_mode,
+        aug_probs,
+        aug_fly,
+        shuffle=False,
+        transpose=False,
+        normalise=True,
+        ram_load=1
+    ):
+        self.batch_gen = BatchGenerator(
+            imdb=imdb,
+            batch_size=batch_size,
+            aug_fn_args=aug_fn_args,
+            aug_mode=aug_mode,
+            aug_probs=aug_probs,
+            aug_fly=aug_fly,
+            shuffle=shuffle,
+            transpose=transpose,
+            normalise=normalise,
+            ram_load=ram_load,
+        )
 
     def __len__(self):
         """Denotes the number of batches per epoch"""
@@ -317,10 +353,7 @@ class DataGenerator(keras.utils.Sequence):
 
     def __getitem__(self, index):
         """Generate one batch of data"""
-
-        # Generate data
         X, y = self.__data_generation()
-
         return X, y
 
     def on_epoch_end(self):
@@ -330,5 +363,7 @@ class DataGenerator(keras.utils.Sequence):
     def __data_generation(self):
         """Generates data to be used for a batch"""
         [X, y] = self.batch_gen.get_batch_list()
-
         return X, y
+
+    def get_total_samples(self) -> int:
+        return self.batch_gen.total_samples

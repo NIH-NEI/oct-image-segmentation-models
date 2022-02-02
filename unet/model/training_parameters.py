@@ -5,8 +5,27 @@ from unet.model import augmentation as aug
 
 class TrainingParams:
     """
-    Parameters for training a network.
+    Parameters for training a network:
 
+        aug_fn_args: tuple of two-tuples containing augmentation function and argument pairs
+        _________
+
+        aug_mode: mode to use for augmentation
+
+        none: no augmentations -> will just use what is in the images and labels arrays as is
+        one: for each image, one augmentation will be picked from the list of possible augmentation functions
+            chosen based on probabilities in aug_probs.
+        all: for each image, all augmentations will be performed creating a new separate image for each
+
+        note that for patch mode: augs are applied to the full size images before being broken into patches
+        _________
+
+        aug_probs: probabilities used for selecting augmentations in 'one' mode. Should be values between 0 and 1
+        which add to 1.
+        _________
+
+        aug_val: boolean used to apply the same augmentation policy to the validation dataset.
+        _________
     """
     def __init__(
         self,
