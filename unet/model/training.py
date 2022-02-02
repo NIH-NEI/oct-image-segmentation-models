@@ -209,34 +209,38 @@ def train_network(train_imdb, val_imdb, model, train_params):
 
         save_config_file(save_foldername, model_name, timestamp, train_params, train_imdb, val_imdb, optimizer)
 
-        if use_gen is True:
-            train_gen = data_gen.DataGenerator(train_imdb, batch_size, aug_fn_args, aug_mode, aug_probs, aug_fly, shuffle,
-                                               normalise=normalise, ram_load=ram_load)
-            val_gen = data_gen.DataGenerator(val_imdb, batch_size, aug_val_fn_args, aug_val_mode, aug_val_probs,
-                                             aug_val_fly, shuffle, normalise=normalise, ram_load=ram_load)
+        train_gen = data_gen.DataGenerator(
+            train_imdb,
+            batch_size,
+            aug_fn_args,
+            aug_mode,
+            aug_probs,
+            aug_fly,
+            shuffle,
+            normalise=normalise,
+            ram_load=ram_load,
+        )
 
-            if train_params.class_weight is None:
-                model_info = model.fit_generator(generator=train_gen,
-                                                 validation_data=val_gen, epochs=epochs, callbacks=callbacks_list,
-                                                 verbose=1)
-            else:
-                model_info = model.fit_generator(generator=train_gen,
-                                                 validation_data=val_gen, epochs=epochs, callbacks=callbacks_list,
-                                                 verbose=1, class_weight=train_params.class_weight)
-        else:
-            x_train = train_imdb.images
-            y_train = train_imdb.labels
+        val_gen = data_gen.DataGenerator(
+            val_imdb,
+            batch_size,
+            aug_val_fn_args,
+            aug_val_mode,
+            aug_val_probs,
+            aug_val_fly,
+            shuffle,
+            normalise=normalise,
+            ram_load=ram_load,
+        )
 
-            x_val = val_imdb.images
-            y_val = val_imdb.labels
-
-            if train_params.class_weight is None:
-                model_info = model.fit(x=x_train, y=y_train, batch_size=batch_size, epochs=epochs, verbose=1,
-                                       callbacks=callbacks_list, validation_data=[x_val, y_val], shuffle=True)
-            else:
-                model_info = model.fit(x=x_train, y=y_train, batch_size=batch_size, epochs=epochs, verbose=1,
-                                       callbacks=callbacks_list, validation_data=[x_val, y_val], shuffle=True,
-                                       class_weight=train_params.class_weight)
+        model_info = model.fit(
+            x=train_gen,
+            validation_data=val_gen,
+            epochs=epochs,
+            callbacks=callbacks_list,
+            verbose=1,
+            class_weight=train_params.class_weight,
+        )
 
 
 def train_model(
