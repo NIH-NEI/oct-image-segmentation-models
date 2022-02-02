@@ -127,9 +127,6 @@ def train_network(train_imdb, val_imdb, model, train_params):
         metric = train_params.metric
         epochs = train_params.epochs
 
-        model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
-
-        model.summary()
 
         batch_size = train_params.batch_size
         aug_fn_args = train_params.aug_fn_args
@@ -197,8 +194,14 @@ def train_network(train_imdb, val_imdb, model, train_params):
         )
 
         if use_tensorboard is True:
-            tensorboard = TensorBoard(log_dir=save_foldername / Path("tensorboard"), write_grads=False, write_graph=False,
-                                      write_images=True, histogram_freq=1, batch_size=batch_size)
+            tensorboard = TensorBoard(
+                log_dir=save_foldername / Path("tensorboard"),
+                write_grads=False,
+                write_graph=False,
+                write_images=True,
+                histogram_freq=1,
+                batch_size=batch_size
+            )
             callbacks_list = [savemodel, history, tensorboard]
         else:
             callbacks_list = [savemodel, history]
@@ -229,6 +232,27 @@ def train_network(train_imdb, val_imdb, model, train_params):
             ram_load=ram_load,
         )
 
+        train_gen_total_samples = train_gen.get_total_samples()
+        if batch_size > train_gen_total_samples:
+            log.error(
+                f"The batch size ({batch_size}) cannot be larger than the number of training samples " \
+                f"({train_gen_total_samples})"
+            )
+            exit(1)
+        log.info(f"Train generator total number of samples: {train_gen_total_samples}")
+
+        val_gen_total_samples = val_gen.get_total_samples()
+        if batch_size > val_gen_total_samples:
+            log.error(
+                f"The batch size ({batch_size}) cannot be larger than the number of validation samples "\
+                f"({val_gen_total_samples})"
+            )
+            exit(1)
+        log.info(f"Validation generator total number of samples: {val_gen_total_samples}")
+
+
+        model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
+        model.summary()
         model_info = model.fit(
             x=train_gen,
             validation_data=val_gen,
@@ -288,21 +312,6 @@ def train_model(
         mode_type="fullsize",
         num_classes=num_classes,
     )
-
-    batch_size = training_params.batch_size
-    if batch_size > train_images.shape[0]:
-        log.error(
-            f"The batch size ({batch_size}) cannot be larger than the number of training samples " \
-                f"({train_images.shape[0]})"
-        )
-        exit(1)
-
-    if batch_size > val_images.shape[0]:
-        log.error(
-            f"The batch size ({batch_size}) cannot be larger than the number of validation samples "\
-                f"({val_images.shape[0]})"
-        )
-        exit(1)
 
     train_network(
         train_imdb,
