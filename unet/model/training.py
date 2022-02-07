@@ -186,8 +186,12 @@ def train_network(train_imdb, val_imdb, model, train_params):
 
         epoch_model_name = "model_epoch{epoch:02d}.hdf5"
 
-        savemodel = ModelCheckpoint(filepath=save_foldername / Path(epoch_model_name), save_best_only=save_best,
-                                    monitor=monitor[0], mode=monitor[1])
+        savemodel = ModelCheckpoint(
+            filepath=save_foldername / Path(epoch_model_name),
+            save_best_only=save_best,
+            monitor=monitor[0],
+            mode=monitor[1]
+        )
 
         history = training_callbacks.SaveEpochInfo(
             save_folder=save_foldername,
@@ -262,10 +266,17 @@ def train_model(
     train_labels = to_categorical(train_labels, num_classes)
     val_labels = to_categorical(val_labels, num_classes)
 
-    model = unet.get_standard_model(
-        input_channels=input_channels,
-        num_classes=num_classes,
-    )
+    initial_model_path = training_params.initial_model
+    if initial_model_path:
+        log.info(f"Starting training from model: {initial_model_path}")
+        # TODO: Fix, 'descs' should be read from some metadata field or separate config
+        model = [common.load_model(initial_model_path), "U-net", "U-net"]
+    else:
+        log.info(f"Starting training from scratch oct-unet model")
+        model = unet.get_standard_model(
+            input_channels=input_channels,
+            num_classes=num_classes,
+        )
 
     train_imdb = imdb.ImageDatabase(
         images=train_images,

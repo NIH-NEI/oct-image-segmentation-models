@@ -12,6 +12,7 @@ class TrainingParams:
         self,
         training_dataset_path: Path,
         training_dataset_name: str,
+        initial_model: Path,
         results_location: Path,
         opt_con,
         opt_params,
@@ -35,6 +36,7 @@ class TrainingParams:
     ):
         self.training_dataset_path = training_dataset_path
         self.training_dataset_name = training_dataset_name
+        self.initial_model = initial_model
         self.results_location = results_location
         self.opt_con = opt_con
         self.opt_params = opt_params

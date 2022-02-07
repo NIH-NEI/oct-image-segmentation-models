@@ -5,8 +5,7 @@ import numpy as np
 import tensorflow as tf
 
 from unet.model import augmentation as aug
-from unet.model import custom_losses
-from unet.model import custom_metrics
+from unet.model import common
 from unet.model import save_parameters as sparams
 
 
@@ -180,12 +179,7 @@ class EvaluationParameters:
 
         self.save_foldername = save_foldername
 
-        custom_objects = dict(
-            list(custom_losses.custom_loss_objects.items())
-            + list(custom_metrics.custom_metric_objects.items())
-        )
-
-        self.loaded_model = tf.keras.models.load_model(model_file_path, custom_objects=custom_objects)
+        self.loaded_model = common.load_model(model_file_path)
         self.num_classes = self.loaded_model.output.shape[-1]
 
         if self.verbosity >= 1:
