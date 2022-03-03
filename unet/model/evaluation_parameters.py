@@ -14,11 +14,11 @@ class PredictionDataset:
         self,
         prediction_images: np.array,
         prediction_images_names: list[Path],
-        prediction_images_ouptut: list[Path]
+        prediction_images_output_dirs: list[Path]
     ):
         self.prediction_images = prediction_images
         self.prediction_images_names = prediction_images_names
-        self.prediction_images_ouptut = prediction_images_ouptut
+        self.prediction_images_output_dirs = prediction_images_output_dirs
 
 
 class EvaluationParameters:
@@ -106,7 +106,7 @@ class EvaluationParameters:
         prediction_dataset: PredictionDataset | Path,
         is_evaluate: bool,
         col_error_range,
-        save_foldername,
+        save_foldername: Path,
         eval_mode='both',
         aug_fn_arg=(aug.no_aug, {}),
         patch_size=None,

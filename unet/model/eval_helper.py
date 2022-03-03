@@ -25,11 +25,6 @@ def evaluate_network(
     imdb,
     eval_params,
 ):
-
-    if eval_params.save_params.disable is False:
-        if not os.path.exists(eval_params.save_foldername):
-            os.makedirs(eval_params.save_foldername)
-
     if eval_params.save_params.disable is False:
         save_eval_config_file(eval_params, imdb)
 
@@ -195,6 +190,7 @@ def evaluate_semantic_network(eval_params, imdb):
                 convert_time,
                 activations,
                 layer_outputs,
+                eval_params.prediction_dataset.prediction_images_output_dirs[ind]
             )
 
         if eval_params.boundaries is True and (
@@ -219,10 +215,10 @@ def evaluate_semantic_network(eval_params, imdb):
                 and eval_params.save_params.boundary_maps is True
             ):
                 boundary_maps = load_dataset_extra(
-                    eval_params, cur_image_name, "boundary_maps"
+                    eval_params.prediction_dataset.prediction_images_output_dirs[ind], cur_image_name, "boundary_maps"
                 )
                 if eval_params.is_evaluate and eval_params.dice_errors is True:
-                    dices = load_dataset(eval_params, cur_image_name, "dices")
+                    dices = load_dataset(eval_params.prediction_dataset.prediction_images_output_dirs[ind], cur_image_name, "dices")
                 else:
                     dices = None
 
@@ -237,6 +233,7 @@ def evaluate_semantic_network(eval_params, imdb):
                 imdb,
                 dices,
                 eval_output,
+                eval_params.prediction_dataset.prediction_images_output_dirs[ind]
             )
 
         elif eval_params.boundaries is False:
@@ -244,13 +241,16 @@ def evaluate_semantic_network(eval_params, imdb):
                 eval_params.save_params.disable is False
                 and eval_params.save_params.attributes is True
             ):
-                save_final_attributes(eval_params, cur_image_name, graph_time=None)
+                save_final_attributes(eval_params, cur_image_name, graph_time=None, output_dir=eval_params.prediction_dataset.prediction_images_output_dirs[ind])
 
         if (
             eval_params.save_params.disable is False
             and eval_params.save_params.temp_extra is True
         ):
-            delete_loadsaveextra_file(eval_params, cur_image_name)
+            delete_loadsaveextra_file(
+                eval_params.prediction_dataset.prediction_images_output_dirs[ind],
+                cur_image_name
+            )
 
         if eval_params.verbosity >= 2:
             print(
@@ -273,6 +273,7 @@ def eval_second_step(
     imdb,
     dices,
     eval_output,
+    output_dir,
 ):
     if eval_params.verbosity >= 2:
         print("Running graph search, segmenting boundary maps...")
@@ -339,27 +340,27 @@ def eval_second_step(
         if eval_params.save_params.delineations is True:
             save_boundaries_to_csv(
                 delineations,
-                eval_params.save_foldername
+                output_dir
                 / cur_image_name.stem
                 / Path("boundaries.csv"),
             )
             save_dataset(
-                eval_params, cur_image_name, "delineations", "uint16", delineations
+                output_dir, cur_image_name, "delineations", "uint16", delineations
             )
         if eval_params.save_params.errors is True and truths is not None:
-            save_dataset(eval_params, cur_image_name, "errors", "float64", errors)
+            save_dataset(output_dir, cur_image_name, "errors", "float64", errors)
             save_dataset(
-                eval_params, cur_image_name, "mean_abs_err", "float64", mean_abs_err
+                output_dir, cur_image_name, "mean_abs_err", "float64", mean_abs_err
             )
-            save_dataset(eval_params, cur_image_name, "mean_err", "float64", mean_err)
+            save_dataset(output_dir, cur_image_name, "mean_err", "float64", mean_err)
             save_dataset(
-                eval_params, cur_image_name, "abs_err_sd", "float64", abs_err_sd
+                output_dir, cur_image_name, "abs_err_sd", "float64", abs_err_sd
             )
-            save_dataset(eval_params, cur_image_name, "err_sd", "float64", err_sd)
+            save_dataset(output_dir, cur_image_name, "err_sd", "float64", err_sd)
             if dices is not None:
-                save_dataset(eval_params, cur_image_name, "dices", "float64", dices)
+                save_dataset(output_dir, cur_image_name, "dices", "float64", dices)
                 save_dataset(
-                    eval_params,
+                    output_dir,
                     cur_image_name,
                     "dices_recon",
                     "float64",
@@ -368,7 +369,7 @@ def eval_second_step(
 
         if eval_params.dice_errors == True:
             save_dataset_extra(
-                eval_params,
+                output_dir,
                 cur_image_name,
                 "comb_area_map_recalc",
                 "uint8",
@@ -377,7 +378,7 @@ def eval_second_step(
 
             plotting.save_image_plot(
                 comb_area_map_recalc,
-                get_loadsave_path(eval_params.save_foldername, cur_image_name) / Path("comb_area_map_recalc.png"),
+                get_loadsave_path(output_dir, cur_image_name) / Path("comb_area_map_recalc.png"),
                 cmap=plotting.colors.ListedColormap(
                     plotting.region_colours, N=len(np.squeeze(reconstructed_maps))
                 ),
@@ -389,7 +390,7 @@ def eval_second_step(
                     plotting.save_segmentation_plot(
                         cur_augment_image,
                         cm.gray,
-                        get_loadsave_path(eval_params.save_foldername, cur_image_name) / Path("seg_plot.png"),
+                        get_loadsave_path(output_dir, cur_image_name) / Path("seg_plot.png"),
                         cur_seg,
                         delineations,
                         column_range=eval_params.col_error_range,
@@ -397,7 +398,7 @@ def eval_second_step(
                     plotting.save_segmentation_plot(
                         cur_augment_image,
                         cm.gray,
-                        get_loadsave_path(eval_params.save_foldername, cur_image_name) / Path("truth_plot.png"),
+                        get_loadsave_path(output_dir, cur_image_name) / Path("truth_plot.png"),
                         cur_seg,
                         predictions=None,
                         column_range=eval_params.col_error_range,
@@ -406,7 +407,7 @@ def eval_second_step(
             plotting.save_segmentation_plot(
                 cur_augment_image,
                 cm.gray,
-                get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                get_loadsave_path(output_dir, cur_image_name)
                 / Path("delin_plot.png"),
                 delineations,
                 predictions=None,
@@ -421,7 +422,7 @@ def eval_second_step(
                             cur_augment_image,
                             cm.gray,
                             get_loadsave_path(
-                                eval_params.save_foldername, cur_image_name
+                                output_dir, cur_image_name
                             )
                             + "/"
                             + "seg_plot_"
@@ -437,7 +438,7 @@ def eval_second_step(
                             cur_augment_image,
                             cm.gray,
                             get_loadsave_path(
-                                eval_params.save_foldername, cur_image_name
+                                output_dir, cur_image_name
                             )
                             + "/"
                             + "truth_plot_"
@@ -453,7 +454,7 @@ def eval_second_step(
                     plotting.save_segmentation_plot(
                         cur_augment_image,
                         cm.gray,
-                        get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                        get_loadsave_path(output_dir, cur_image_name)
                         + "/"
                         + "delin_plot_"
                         + str(i)
@@ -473,7 +474,7 @@ def eval_second_step(
                             cur_augment_image,
                             cm.gray,
                             get_loadsave_path(
-                                eval_params.save_foldername, cur_image_name
+                                output_dir, cur_image_name
                             )
                             + "/"
                             + "seg_plot_pair"
@@ -489,7 +490,7 @@ def eval_second_step(
                             cur_augment_image,
                             cm.gray,
                             get_loadsave_path(
-                                eval_params.save_foldername, cur_image_name
+                                output_dir, cur_image_name
                             )
                             + "/"
                             + "truth_plot_pair"
@@ -505,7 +506,7 @@ def eval_second_step(
                     plotting.save_segmentation_plot(
                         cur_augment_image,
                         cm.gray,
-                        get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                        get_loadsave_path(output_dir, cur_image_name)
                         + "/"
                         + "delin_plot_pair"
                         + str(i)
@@ -523,7 +524,7 @@ def eval_second_step(
                     plotting.save_segmentation_plot(
                         cur_augment_image,
                         cm.gray,
-                        get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                        get_loadsave_path(output_dir, cur_image_name)
                         + "/"
                         + "seg_plot_ret.png",
                         np.concatenate(
@@ -541,7 +542,7 @@ def eval_second_step(
                     plotting.save_segmentation_plot(
                         cur_augment_image,
                         cm.gray,
-                        get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                        get_loadsave_path(output_dir, cur_image_name)
                         + "/"
                         + "truth_plot_ret.png",
                         np.concatenate(
@@ -560,7 +561,7 @@ def eval_second_step(
                 plotting.save_segmentation_plot(
                     cur_augment_image,
                     cm.gray,
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                    get_loadsave_path(output_dir, cur_image_name)
                     + "/"
                     + "delin_plot_ret.png",
                     np.concatenate(
@@ -577,7 +578,7 @@ def eval_second_step(
                 )
 
         if eval_params.save_params.attributes is True:
-            save_final_attributes(eval_params, cur_image_name, graph_time)
+            save_final_attributes(eval_params, cur_image_name, graph_time, output_dir)
         if eval_params.save_params.error_plot is True:
             # TODO implement error profile plots
             pass
@@ -587,22 +588,22 @@ def eval_second_step(
             and eval_params.flatten_image is True
         ):
             save_dataset_extra(
-                eval_params,
+                output_dir,
                 cur_image_name,
                 "flatten_boundary",
                 "uint16",
                 flatten_boundary,
             )
             save_dataset_extra(
-                eval_params, cur_image_name, "flatten_image", "uint8", flattened_image
+                output_dir, cur_image_name, "flatten_image", "uint8", flattened_image
             )
             save_dataset_extra(
-                eval_params, cur_image_name, "flatten_offsets", "uint16", offsets
+                output_dir, cur_image_name, "flatten_offsets", "uint16", offsets
             )
             if eval_params.save_params.pngimages is True:
                 plotting.save_image_plot(
                     flattened_image,
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                    get_loadsave_path(output_dir, cur_image_name)
                     + "/flattened_image.png",
                     cmap=cm.gray,
                     vmin=0,
@@ -611,7 +612,7 @@ def eval_second_step(
                 plotting.save_segmentation_plot(
                     cur_augment_image,
                     cm.gray,
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                    get_loadsave_path(output_dir, cur_image_name)
                     + "/"
                     + "flatten_boundary_plot.png",
                     np.expand_dims(flatten_boundary, axis=0),
@@ -625,14 +626,14 @@ def eval_second_step(
             and eval_params.trim_maps is True
         ):
             save_dataset_extra(
-                eval_params, cur_image_name, "trim_maps", "uint8", trim_maps
+                output_dir, cur_image_name, "trim_maps", "uint8", trim_maps
             )
             if eval_params.save_params.pngimages is True:
                 for map_ind in range(len(trim_maps)):
                     boundary_name = imdb.get_boundary_name(map_ind)
                     plotting.save_image_plot(
                         trim_maps[map_ind],
-                        get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                        get_loadsave_path(output_dir, cur_image_name)
                         + "/trim_map_"
                         + boundary_name
                         + ".png",
@@ -709,27 +710,6 @@ def print_error_summary(overall_errors, imdb, cur_image_name):
     print("\n")
 
 
-def all_maps_save(
-    eval_params, imdb, boundary_maps, predict_time, augment_time, gen_time, dices
-):
-    if eval_params.save_params.boundary_maps is True:
-        save_dataset_all_images(eval_params, "boundary_maps", "uint8", boundary_maps)
-
-    if eval_params.save_params.attributes is True:
-        save_intermediate_attributes_allimages(
-            eval_params, imdb, predict_time, augment_time, gen_time
-        )
-
-    save_filename = eval_params.save_foldername + "/results.hdf5"
-    save_file = h5py.File(save_filename, "w")
-
-    save_file["dices"] = dices
-    save_file["mean_dices"] = np.mean(dices, axis=0)
-    save_file["sd_dices"] = np.std(dices, axis=0)
-
-    save_file.close()
-
-
 def intermediate_save_semantic(
     eval_params,
     imdb,
@@ -750,15 +730,16 @@ def intermediate_save_semantic(
     convert_time,
     activations,
     layer_outputs,
+    output_dir,
 ):
     if eval_params.save_params.area_maps is True:
-        save_dataset_extra(eval_params, cur_image_name, "area_maps", "uint8", area_maps)
+        save_dataset_extra(output_dir, cur_image_name, "area_maps", "uint8", area_maps)
 
         if eval_params.save_params.pngimages is True:
             for map_ind in range(len(area_maps)):
                 plotting.save_image_plot(
                     area_maps[map_ind],
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                    get_loadsave_path(output_dir, cur_image_name)
                     / Path(
                         "area_map_" + imdb.get_fullsize_class_name(map_ind) + ".png"
                     ),
@@ -766,13 +747,13 @@ def intermediate_save_semantic(
                 )
     if eval_params.save_params.comb_area_maps is True:
         save_dataset_extra(
-            eval_params, cur_image_name, "comb_area_map", "uint8", comb_area_map
+            output_dir, cur_image_name, "comb_area_map", "uint8", comb_area_map
         )
 
         if eval_params.save_params.pngimages is True:
             plotting.save_image_plot(
                 comb_area_map,
-                get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                get_loadsave_path(output_dir, cur_image_name)
                 / Path("comb_area_map.png"),
                 cmap=plotting.colors.ListedColormap(
                     plotting.region_colours, N=len(area_maps)
@@ -781,7 +762,7 @@ def intermediate_save_semantic(
         if eval_params.save_params.crop_map is True:
             plotting.save_image_plot_crop(
                 comb_area_map,
-                get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                get_loadsave_path(output_dir, cur_image_name)
                 / Path("comb_area_map_crop.png"),
                 cmap=plotting.colors.ListedColormap(
                     plotting.region_colours, N=len(area_maps)
@@ -790,7 +771,7 @@ def intermediate_save_semantic(
             )
     if eval_params.boundaries is True and eval_params.save_params.boundary_maps is True:
         save_dataset_extra(
-            eval_params, cur_image_name, "boundary_maps", "uint8", prob_maps
+            output_dir, cur_image_name, "boundary_maps", "uint8", prob_maps
         )
         if (
             eval_params.save_params.pngimages is True
@@ -800,7 +781,7 @@ def intermediate_save_semantic(
                 boundary_name = imdb.get_boundary_name(map_ind)
                 plotting.save_image_plot(
                     prob_maps[map_ind],
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                    get_loadsave_path(output_dir, cur_image_name)
                     + "/boundary_map_"
                     + boundary_name
                     + ".png",
@@ -808,12 +789,12 @@ def intermediate_save_semantic(
                 )
     if eval_params.save_params.raw_image is True:
         save_dataset_extra(
-            eval_params, cur_image_name, "raw_image", "uint8", cur_raw_image
+            output_dir, cur_image_name, "raw_image", "uint8", cur_raw_image
         )
         if cur_raw_image.shape[2] == 3:
             plotting.save_image_plot(
                 cur_raw_image,
-                get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                get_loadsave_path(output_dir, cur_image_name)
                 + "/raw_image.png",
                 cmap=None,
                 vmin=0,
@@ -822,7 +803,7 @@ def intermediate_save_semantic(
         else:
             plotting.save_image_plot(
                 cur_raw_image,
-                get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                get_loadsave_path(output_dir, cur_image_name)
                 / Path("raw_image.png"),
                 cmap=cm.gray,
                 vmin=0,
@@ -832,7 +813,7 @@ def intermediate_save_semantic(
             if eval_params.save_params.crop_map is True:
                 plotting.save_image_plot_crop(
                     cur_raw_image,
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                    get_loadsave_path(output_dir, cur_image_name)
                     + "/raw_image_crop.png",
                     cmap=cm.gray,
                     crop_bounds=eval_params.save_params.crop_bounds,
@@ -842,26 +823,26 @@ def intermediate_save_semantic(
     if eval_params.save_params.raw_labels is True:
         if eval_params.is_evaluate:
             save_dataset_extra(
-                eval_params, cur_image_name, "raw_labels", "uint8", cur_labels
+                output_dir, cur_image_name, "raw_labels", "uint8", cur_labels
             )
             if eval_params.save_params.pngimages is True:
                 plotting.save_image_plot(
                     np.argmax(cur_labels, axis=2),
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name) / Path("comb_raw_label.png"),
+                    get_loadsave_path(output_dir, cur_image_name) / Path("comb_raw_label.png"),
                     cmap=plotting.colors.ListedColormap(
                         plotting.region_colours, N=len(area_maps)
                     ),
                 )
     if eval_params.save_params.raw_segs is True:
-        save_dataset_extra(eval_params, cur_image_name, "raw_segs", "uint16", cur_seg)
+        save_dataset_extra(output_dir, cur_image_name, "raw_segs", "uint16", cur_seg)
     if eval_params.save_params.aug_image is True:
         save_dataset_extra(
-            eval_params, cur_image_name, "augment_image", "uint8", augment_image
+            output_dir, cur_image_name, "augment_image", "uint8", augment_image
         )
         if eval_params.save_params.pngimages is True:
             plotting.save_image_plot(
                 augment_image,
-                get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                get_loadsave_path(output_dir, cur_image_name)
                 + "/augment_image.png",
                 cmap=cm.gray,
                 vmin=0,
@@ -870,7 +851,7 @@ def intermediate_save_semantic(
             if eval_params.save_params.crop_map is True:
                 plotting.save_image_plot_crop(
                     augment_image,
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                    get_loadsave_path(output_dir, cur_image_name)
                     + "/augment_image_crop.png",
                     cmap=cm.gray,
                     crop_bounds=eval_params.save_params.crop_bounds,
@@ -879,15 +860,15 @@ def intermediate_save_semantic(
                 )
     if eval_params.save_params.aug_labels is True:
         save_dataset_extra(
-            eval_params, cur_image_name, "augment_labels", "uint8", augment_labels
+            output_dir, cur_image_name, "augment_labels", "uint8", augment_labels
         )
     if eval_params.save_params.aug_segs is True:
         save_dataset_extra(
-            eval_params, cur_image_name, "augment_segs", "uint16", augment_segs
+            output_dir, cur_image_name, "augment_segs", "uint16", augment_segs
         )
     if eval_params.save_params.boundary_names is True:
         save_dataset_extra(
-            eval_params,
+            output_dir,
             cur_image_name,
             "boundary_names",
             "S100",
@@ -895,11 +876,11 @@ def intermediate_save_semantic(
         )
     if eval_params.save_params.area_names is True:
         save_dataset_extra(
-            eval_params, cur_image_name, "area_names", "S100", imdb.get_area_names()
+            output_dir, cur_image_name, "area_names", "S100", imdb.get_area_names()
         )
     if eval_params.save_params.patch_class_names is True:
         save_dataset_extra(
-            eval_params,
+            output_dir,
             cur_image_name,
             "patch_class_names",
             "S100",
@@ -907,7 +888,7 @@ def intermediate_save_semantic(
         )
     if eval_params.save_params.fullsize_class_names is True:
         save_dataset_extra(
-            eval_params,
+            output_dir,
             cur_image_name,
             "fullsize_class_names",
             "S100",
@@ -916,7 +897,7 @@ def intermediate_save_semantic(
     if eval_params.save_params.errors is True:
         if dices is not None:
             save_dataset(
-                eval_params, cur_image_name, "dices", "float64", np.squeeze(dices)
+                output_dir, cur_image_name, "dices", "float64", np.squeeze(dices)
             )
     if eval_params.save_params.attributes is True:
         save_intermediate_attributes_semantic(
@@ -927,6 +908,7 @@ def intermediate_save_semantic(
             augment_time,
             gen_time,
             convert_time,
+            output_dir,
         )
     if eval_params.save_params.activations is True:
         for i in range(len(activations)):
@@ -934,7 +916,7 @@ def intermediate_save_semantic(
 
             if eval_params.save_params.pngimages is True:
                 dir_name = (
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
+                    get_loadsave_path(output_dir, cur_image_name)
                     + "/activations/"
                     + layer_name
                 )
@@ -952,14 +934,14 @@ def intermediate_save_semantic(
             bin_act[bin_act != 0] = 1
 
             save_dataset_extra(
-                eval_params,
+                output_dir,
                 cur_image_name,
                 "activations/" + layer_name,
                 "float32",
                 activations[i][0, :, :, :],
             )
             save_dataset_extra(
-                eval_params,
+                output_dir,
                 cur_image_name,
                 "activations_bin/" + layer_name,
                 "float32",
@@ -967,133 +949,15 @@ def intermediate_save_semantic(
             )
 
 
-def intermediate_save_patch_based(
-    eval_params,
-    imdb,
-    cur_image_name,
-    prob_maps,
-    predict_time,
-    augment_time,
-    gen_time,
-    convert_time,
-    patch_time,
-    augment_image,
-    augment_labels,
-    augment_segs,
-    cur_raw_image,
-    cur_labels,
-    cur_seg,
-):
-    if eval_params.save_params.boundary_maps is True:
-        save_dataset_extra(
-            eval_params, cur_image_name, "boundary_maps", "uint8", prob_maps
-        )
-        if eval_params.save_params.pngimages is True:
-            for map_ind in range(len(prob_maps)):
-                boundary_name = imdb.get_patch_class_name(map_ind)
-                plotting.save_image_plot(
-                    prob_maps[map_ind],
-                    get_loadsave_path(eval_params.save_foldername, cur_image_name)
-                    + "/boundary_map_"
-                    + boundary_name
-                    + ".png",
-                    cmap=cm.Blues,
-                )
-    if eval_params.save_params.raw_image is True:
-        save_dataset_extra(
-            eval_params, cur_image_name, "raw_image", "uint8", cur_raw_image
-        )
-        if eval_params.save_params.pngimages is True:
-            plotting.save_image_plot(
-                cur_raw_image,
-                get_loadsave_path(eval_params.save_foldername, cur_image_name)
-                + "/raw_image.png",
-                cmap=cm.gray,
-            )
-    if eval_params.save_params.raw_labels is True:
-        save_dataset_extra(
-            eval_params, cur_image_name, "raw_labels", "uint8", cur_labels
-        )
-    if eval_params.save_params.raw_segs is True:
-        save_dataset_extra(eval_params, cur_image_name, "raw_segs", "uint16", cur_seg)
-    if eval_params.save_params.aug_image is True:
-        save_dataset_extra(
-            eval_params, cur_image_name, "augment_image", "uint8", augment_image
-        )
-        if eval_params.save_params.pngimages is True:
-            plotting.save_image_plot(
-                augment_image,
-                get_loadsave_path(eval_params.save_foldername, cur_image_name)
-                + "/augment_image.png",
-                cmap=cm.gray,
-            )
-    if eval_params.save_params.aug_labels is True:
-        save_dataset_extra(
-            eval_params, cur_image_name, "augment_labels", "uint8", augment_labels
-        )
-    if eval_params.save_params.aug_segs is True:
-        save_dataset_extra(
-            eval_params, cur_image_name, "augment_segs", "uint16", augment_segs
-        )
-    if eval_params.save_params.boundary_names is True:
-        save_dataset_extra(
-            eval_params,
-            cur_image_name,
-            "boundary_names",
-            "S100",
-            imdb.get_boundary_names(),
-        )
-    if eval_params.save_params.area_names is True:
-        save_dataset_extra(
-            eval_params, cur_image_name, "area_names", "S100", imdb.get_area_names()
-        )
-    if eval_params.save_params.patch_class_names is True:
-        save_dataset_extra(
-            eval_params,
-            cur_image_name,
-            "patch_class_names",
-            "S100",
-            imdb.get_patch_class_names(),
-        )
-    if eval_params.save_params.attributes is True:
-        save_intermediate_attributes_patch_based(
-            eval_params,
-            imdb,
-            cur_image_name,
-            predict_time,
-            augment_time,
-            gen_time,
-            convert_time,
-            patch_time,
-        )
-
-
-def delete_loadsaveextra_file(eval_params, name):
-    if eval_params.verbosity >= 2:
-        print("Deleting extra evaluations file...")
-
-    loadsaveextra_path = get_loadsave_path(eval_params.save_foldername, name)
+def delete_loadsaveextra_file(output_dir, name):
+    loadsaveextra_path = get_loadsave_path(output_dir, name)
 
     if os.path.isfile(get_loadsaveextra_filename(loadsaveextra_path)):
         os.remove(get_loadsaveextra_filename(loadsaveextra_path))
 
 
-#   return save_foldername / Path(name).stem
-def delete_allimages_file(eval_params):
-    if eval_params.verbosity >= 2:
-        print("Deleting extra evaluations file...")
-
-    allimages_path = get_allimages_path(eval_params.save_foldername)
-
-    if os.path.isfile(get_allimages_filename(allimages_path)):
-        os.remove(get_allimages_filename(allimages_path))
-
-
-def save_dataset(eval_params, name, dset_name, datatype, dataset):
-    if eval_params.verbosity >= 2:
-        print("Saving dataset (" + dset_name + ") to file...")
-
-    loadsave_file = open_append_loadsave_file(eval_params.save_foldername, name)
+def save_dataset(output_dir, name, dset_name, datatype, dataset):
+    loadsave_file = open_append_loadsave_file(output_dir, name)
 
     dataset = np.array(dataset, dtype=datatype)
     dset = loadsave_file.require_dataset(dset_name, dataset.shape, dtype=datatype)
@@ -1102,11 +966,8 @@ def save_dataset(eval_params, name, dset_name, datatype, dataset):
     loadsave_file.close()
 
 
-def save_dataset_extra(eval_params, name, dset_name, datatype, dataset):
-    if eval_params.verbosity >= 2:
-        print("Saving dataset (" + dset_name + ") to file...")
-
-    loadsave_file = open_append_loadsaveextra_file(eval_params.save_foldername, name)
+def save_dataset_extra(output_dir, name, dset_name, datatype, dataset):
+    loadsave_file = open_append_loadsaveextra_file(output_dir, name)
 
     dataset = np.array(dataset, dtype=datatype)
     dset = loadsave_file.require_dataset(dset_name, dataset.shape, dtype=datatype)
@@ -1115,24 +976,8 @@ def save_dataset_extra(eval_params, name, dset_name, datatype, dataset):
     loadsave_file.close()
 
 
-def save_dataset_all_images(eval_params, dset_name, datatype, dataset):
-    if eval_params.verbosity >= 2:
-        print("Saving dataset (" + dset_name + ") to file...")
-
-    loadsave_file = open_allimages_file(eval_params.save_foldername, "a")
-
-    dataset = np.array(dataset, dtype=datatype)
-    dset = loadsave_file.require_dataset(dset_name, dataset.shape, dtype=datatype)
-    dset[:] = dataset
-
-    loadsave_file.close()
-
-
-def load_dataset(eval_params, name, dset_name):
-    if eval_params.verbosity >= 2:
-        print("Loading dataset (" + dset_name + ") from file...")
-
-    loadsave_file = open_read_loadsave_file(eval_params.save_foldername, name)
+def load_dataset(output_dir, name, dset_name):
+    loadsave_file = open_read_loadsave_file(output_dir, name)
 
     dset = loadsave_file[dset_name][:]
 
@@ -1141,11 +986,8 @@ def load_dataset(eval_params, name, dset_name):
     return dset
 
 
-def load_dataset_extra(eval_params, name, dset_name):
-    if eval_params.verbosity >= 2:
-        print("Loading dataset (" + dset_name + ") from file...")
-
-    loadsaveextra_file = open_read_loadsaveextra_file(eval_params.save_foldername, name)
+def load_dataset_extra(output_dir, name, dset_name):
+    loadsaveextra_file = open_read_loadsaveextra_file(output_dir, name)
 
     dset = loadsaveextra_file[dset_name][:]
 
@@ -1154,35 +996,13 @@ def load_dataset_extra(eval_params, name, dset_name):
     return dset
 
 
-def load_dataset_all_images_nonram(eval_params, dset_name):
-    if eval_params.verbosity >= 2:
-        print("Loading dataset (" + dset_name + ") from file...")
-
-    allimages_file = open_allimages_file(eval_params.save_foldername, "r")
-
-    dset = allimages_file[dset_name]
-
-    return [dset, allimages_file]
-
-
-def load_dataset_results_nonram(eval_params, dset_name):
-    if eval_params.verbosity >= 2:
-        print("Loading dataset (" + dset_name + ") from file...")
-
-    results_file = open_results_file(eval_params.save_foldername, "r")
-
-    dset = results_file[dset_name]
-
-    return [dset, results_file]
-
-
 def save_intermediate_attributes_semantic(
-    eval_params, imdb, name, predict_time, augment_time, generator_time, convert_time
+    eval_params, imdb, name, predict_time, augment_time, generator_time, convert_time, output_dir
 ):
     if eval_params.verbosity >= 2:
         print("Saving intermediate attributes...")
 
-    loadsave_file = open_append_loadsave_file(eval_params.save_foldername, name)
+    loadsave_file = open_append_loadsave_file(output_dir, name)
 
     loadsave_file.attrs["aug_desc"] = np.array(eval_params.aug_desc, dtype="S100")
     loadsave_file.attrs["model_filename"] = np.array(
@@ -1205,49 +1025,11 @@ def save_intermediate_attributes_semantic(
     loadsave_file.close()
 
 
-def save_intermediate_attributes_patch_based(
-    eval_params,
-    imdb,
-    name,
-    predict_time,
-    augment_time,
-    generator_time,
-    convert_time,
-    patch_time=None,
-):
-    if eval_params.verbosity >= 2:
-        print("Saving intermediate attributes...")
-
-    loadsave_file = open_append_loadsave_file(eval_params.save_foldername, name)
-
-    loadsave_file.attrs["aug_desc"] = np.array(eval_params.aug_desc, dtype="S100")
-    loadsave_file.attrs["model_filename"] = np.array(
-        eval_params.model_file_path.name, dtype="S100"
-    )
-    loadsave_file.attrs["network_foldername"] = np.array(
-        eval_params.model_file_path.parent, dtype="S100"
-    )
-    loadsave_file.attrs["data_filename"] = np.array(imdb.filename, dtype="S100")
-    loadsave_file.attrs["patch_size"] = np.array(eval_params.patch_size)
-    loadsave_file.attrs["predict_time"] = np.array(predict_time)
-    loadsave_file.attrs["augment_time"] = np.array(augment_time)
-    loadsave_file.attrs["convert_time"] = np.array(convert_time)
-    loadsave_file.attrs["patch_time"] = np.array(patch_time)
-    loadsave_file.attrs["generator_time"] = np.array(generator_time)
-    loadsave_file.attrs["intermediate_timestamp"] = np.array(
-        common.get_timestamp(), dtype="S100"
-    )
-    if eval_params.save_params.boundary_maps is True:
-        loadsave_file.attrs["complete_predict"] = True
-
-    loadsave_file.close()
-
-
-def save_final_attributes(eval_params, name, graph_time):
+def save_final_attributes(eval_params, name, graph_time, output_dir):
     if eval_params.verbosity >= 2:
         print("Saving final attributes...")
 
-    loadsave_file = open_append_loadsave_file(eval_params.save_foldername, name)
+    loadsave_file = open_append_loadsave_file(output_dir, name)
 
     loadsave_file.attrs["final_timestamp"] = np.array(
         common.get_timestamp(), dtype="S100"
@@ -1262,126 +1044,6 @@ def save_final_attributes(eval_params, name, graph_time):
         loadsave_file.attrs["complete_graph"] = True
 
     loadsave_file.close()
-
-
-def save_initial_attributes(eval_params, name):
-    if eval_params.verbosity >= 2:
-        print("Saving initial attributes...")
-
-    loadsave_file = open_append_loadsave_file(eval_params.save_foldername, name)
-
-    loadsave_file.attrs["complete_predict"] = False
-    loadsave_file.attrs["initial_timestamp"] = np.array(
-        common.get_timestamp(), dtype="S100"
-    )
-
-    if eval_params.boundaries is True:
-        loadsave_file.attrs["complete_graph"] = False
-
-    loadsave_file.close()
-
-
-def save_initial_attributes_all_images(eval_params):
-    if eval_params.verbosity >= 2:
-        print("Saving initial attributes for all images file...")
-
-    loadsave_file = open_allimages_file(eval_params.save_foldername, "a")
-
-    loadsave_file.attrs["complete_predict"] = False
-    loadsave_file.attrs["initial_timestamp"] = np.array(
-        common.get_timestamp(), dtype="S100"
-    )
-
-    loadsave_file.close()
-
-
-def save_intermediate_attributes_allimages(
-    eval_params, imdb, predict_time, augment_time, generator_time
-):
-    if eval_params.verbosity >= 2:
-        print("Saving intermediate attributes...")
-
-    loadsave_file = open_allimages_file(eval_params.save_foldername, "a")
-
-    loadsave_file.attrs["aug_desc"] = np.array(eval_params.aug_desc, dtype="S100")
-    loadsave_file.attrs["model_filename"] = np.array(
-        eval_params.model_file_path.name, dtype="S100"
-    )
-    loadsave_file.attrs["network_foldername"] = np.array(
-        eval_params.model_file_path.parent, dtype="S100"
-    )
-    loadsave_file.attrs["data_filename"] = np.array(imdb.filename, dtype="S100")
-    loadsave_file.attrs["predict_time"] = np.array(predict_time)
-    loadsave_file.attrs["augment_time"] = np.array(augment_time)
-    loadsave_file.attrs["generator_time"] = np.array(generator_time)
-    loadsave_file.attrs["intermediate_timestamp"] = np.array(
-        common.get_timestamp(), dtype="S100"
-    )
-
-    if eval_params.save_params.boundary_maps is True:
-        loadsave_file.attrs["complete_predict"] = True
-
-    loadsave_file.close()
-
-
-def check_exists(save_foldername, name):
-    loadsave_path = get_loadsave_path(save_foldername, name)
-
-    if not os.path.exists(loadsave_path):
-        os.makedirs(loadsave_path)
-
-    loadsave_filename = get_loadsave_filename(loadsave_path)
-
-    if os.path.isfile(loadsave_filename):
-        return True
-    else:
-        return False
-
-
-def check_allimages_exists(save_foldername):
-    allimages_path = get_allimages_path(save_foldername)
-
-    if not os.path.exists(allimages_path):
-        os.makedirs(allimages_path)
-
-    allimages_filename = get_allimages_filename(allimages_path)
-
-    if os.path.isfile(allimages_filename):
-        return True
-    else:
-        return False
-
-
-def get_complete_status_allimages(save_foldername):
-    loadsave_file = open_allimages_file(save_foldername, "r")
-
-    if loadsave_file.attrs["complete_predict"] == True:
-        status = "predict"
-    else:
-        status = "none"
-
-    loadsave_file.close()
-    return status
-
-
-def get_complete_status(save_foldername, name, boundaries):
-    loadsave_file = open_read_loadsave_file(save_foldername, name)
-
-    if boundaries:
-        if loadsave_file.attrs["complete_graph"] == True:
-            status = "graph"
-        elif loadsave_file.attrs["complete_predict"] == True:
-            status = "predict"
-        else:
-            status = "none"
-    else:
-        if loadsave_file.attrs["complete_predict"] == True:
-            status = "predict"
-        else:
-            status = "none"
-
-    loadsave_file.close()
-    return status
 
 
 def open_append_loadsave_file(save_foldername, name):
@@ -1404,30 +1066,6 @@ def open_append_loadsaveextra_file(save_foldername, name):
     loadsaveextra_file = h5py.File(get_loadsaveextra_filename(loadsaveextra_path), "a")
 
     return loadsaveextra_file
-
-
-def open_allimages_file(save_foldername, mode):
-    all_images_path = get_allimages_path(save_foldername)
-
-    if mode == "a":
-        if not os.path.exists(all_images_path):
-            os.makedirs(all_images_path)
-
-    loadsave_file = h5py.File(get_allimages_filename(all_images_path), mode)
-
-    return loadsave_file
-
-
-def open_results_file(save_foldername, mode):
-    results_path = get_results_path(save_foldername)
-
-    if mode == "a":
-        if not os.path.exists(results_path):
-            os.makedirs(results_path)
-
-    loadsave_file = h5py.File(get_results_filename(results_path), mode)
-
-    return loadsave_file
 
 
 def open_read_loadsave_file(save_foldername, name):
@@ -1456,32 +1094,9 @@ def get_loadsaveextra_filename(loadsave_path):
     return loadsave_path / Path("evaluations_extra.hdf5")
 
 
-def get_allimages_path(save_foldername):
-    return save_foldername
-
-
-def get_allimages_filename(allimages_path):
-    return allimages_path + "/all_images.hdf5"
-
-
-def get_results_path(save_foldername):
-    return save_foldername
-
-
-def get_results_filename(allimages_path):
-    return allimages_path + "/results.hdf5"
-
-
 def convert_maps_uint8(prob_maps):
     prob_maps *= 255
     prob_maps = prob_maps.astype("uint8")
-
-    return prob_maps
-
-
-def convert_maps_float64(prob_maps):
-    prob_maps = prob_maps.astype("float64")
-    prob_maps /= 255
 
     return prob_maps
 
