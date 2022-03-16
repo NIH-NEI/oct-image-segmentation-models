@@ -344,6 +344,11 @@ def eval_second_step(
                 / cur_image_name.stem
                 / Path("boundaries.csv"),
             )
+
+            np.savetxt(
+                output_dir / cur_image_name.stem / Path("segmentation_map.csv"),
+                np.transpose(comb_area_map_recalc), fmt="%d", delimiter=",")
+
             save_dataset(
                 output_dir, cur_image_name, "delineations", "uint16", delineations
             )
