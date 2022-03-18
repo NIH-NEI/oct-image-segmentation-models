@@ -115,156 +115,168 @@ def save_config_file(
     config_file.attrs["ram_load"] = train_imdb.ram_load
 
 
-def train_network(train_imdb, val_imdb, model, train_params):
-    with tf.device('/gpu:0'):
-        [model, model_name, model_name_short] = model
-        optimizer_con = train_params.opt_con
-        optimizer_params = train_params.opt_params
+def train_network(train_imdb, val_imdb, train_params, input_channels, num_classes):
+    strategy = tf.distribute.MirroredStrategy()
+    log.info(f"Number of devices: {strategy.num_replicas_in_sync}")
 
-        optimizer = optimizer_con(**optimizer_params)
+    optimizer_con = train_params.opt_con
+    optimizer_params = train_params.opt_params
 
-        loss = train_params.loss
-        metric = train_params.metric
-        epochs = train_params.epochs
+    optimizer = optimizer_con(**optimizer_params)
 
+    loss = train_params.loss
+    metric = train_params.metric
+    epochs = train_params.epochs
 
-        batch_size = train_params.batch_size
-        aug_fn_args = train_params.aug_fn_args
-        aug_mode = train_params.aug_mode
-        aug_probs = train_params.aug_probs
-        aug_fly = train_params.aug_fly
-        aug_val = train_params.aug_val
-        use_gen = train_params.use_gen
-        use_tensorboard = train_params.use_tensorboard
-        ram_load = train_imdb.ram_load
+    initial_model_path = train_params.initial_model
+    if initial_model_path:
+        log.info(f"Starting training from model: {initial_model_path}")
+        # TODO: Fix, 'descs' should be read from some metadata field or separate config
+        model, model_name, model_name_short = [common.load_model(initial_model_path), "U-net", "U-net"]
+    else:
+        log.info(f"Starting training from scratch oct-unet model")
+        with strategy.scope():
+            model, model_name, model_name_short = unet.get_standard_model(
+                input_channels=input_channels,
+                num_classes=num_classes,
+            )
+            model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
 
-        if use_gen is False and ram_load == 0:
-            print("Incompatible parameter selection")
-            exit(1)
-        elif ram_load == 0 and aug_fly is False and aug_mode != 'none':
-            print("Incompatible parameter selection")
-            exit(1)
+    batch_size = train_params.batch_size
+    aug_fn_args = train_params.aug_fn_args
+    aug_mode = train_params.aug_mode
+    aug_probs = train_params.aug_probs
+    aug_fly = train_params.aug_fly
+    aug_val = train_params.aug_val
+    use_gen = train_params.use_gen
+    use_tensorboard = train_params.use_tensorboard
+    ram_load = train_imdb.ram_load
 
-        if aug_val is False:
-            aug_val_mode = 'none'
-            aug_val_fn_args = []
-            aug_val_probs = []
-            aug_val_fly = False
-        else:
-            aug_val_mode = aug_mode
-            aug_val_fn_args = aug_fn_args
-            aug_val_probs = aug_probs
-            aug_val_fly = aug_fly
+    if use_gen is False and ram_load == 0:
+        print("Incompatible parameter selection")
+        exit(1)
+    elif ram_load == 0 and aug_fly is False and aug_mode != 'none':
+        print("Incompatible parameter selection")
+        exit(1)
 
-        shuffle = train_params.shuffle
-        normalise = train_params.normalise
-        monitor = train_params.model_save_monitor
+    if aug_val is False:
+        aug_val_mode = 'none'
+        aug_val_fn_args = []
+        aug_val_probs = []
+        aug_val_fly = False
+    else:
+        aug_val_mode = aug_mode
+        aug_val_fn_args = aug_fn_args
+        aug_val_probs = aug_probs
+        aug_val_fly = aug_fly
 
-        save_best = train_params.model_save_best
+    shuffle = train_params.shuffle
+    normalise = train_params.normalise
+    monitor = train_params.model_save_monitor
 
-        dataset_name = train_imdb.name
+    save_best = train_params.model_save_best
 
-        timestamp = common.get_timestamp()
+    dataset_name = train_imdb.name
 
-        results_location = train_params.results_location
-        save_foldername = results_location / Path(timestamp + "_" + model_name_short + "_" + dataset_name)
+    timestamp = common.get_timestamp()
 
-        if not os.path.exists(save_foldername):
-            os.makedirs(save_foldername)
-        else:
-            count = 2
+    results_location = train_params.results_location
+    save_foldername = results_location / Path(timestamp + "_" + model_name_short + "_" + dataset_name)
+
+    if not os.path.exists(save_foldername):
+        os.makedirs(save_foldername)
+    else:
+        count = 2
+        testsave_foldername = results_location / Path(timestamp + "_" + str(count) + "_" + model_name_short + "_" + dataset_name)
+        while os.path.exists(testsave_foldername):
+            count += 1
             testsave_foldername = results_location / Path(timestamp + "_" + str(count) + "_" + model_name_short + "_" + dataset_name)
-            while os.path.exists(testsave_foldername):
-                count += 1
-                testsave_foldername = results_location / Path(timestamp + "_" + str(count) + "_" + model_name_short + "_" + dataset_name)
 
-            save_foldername = testsave_foldername
-            os.makedirs(save_foldername)
+        save_foldername = testsave_foldername
+        os.makedirs(save_foldername)
 
-        epoch_model_name = "model_epoch{epoch:02d}.hdf5"
+    epoch_model_name = "model_epoch{epoch:02d}.hdf5"
 
-        savemodel = ModelCheckpoint(
-            filepath=save_foldername / Path(epoch_model_name),
-            save_best_only=save_best,
-            monitor=monitor[0],
-            mode=monitor[1]
+    savemodel = ModelCheckpoint(
+        filepath=save_foldername / Path(epoch_model_name),
+        save_best_only=save_best,
+        monitor=monitor[0],
+        mode=monitor[1]
+    )
+
+    history = training_callbacks.SaveEpochInfo(
+        save_folder=save_foldername,
+        model_name=model_name,
+        train_params=train_params,
+        train_imdb=train_imdb
+    )
+
+    if use_tensorboard is True:
+        tensorboard = TensorBoard(
+            log_dir=save_foldername / Path("tensorboard"),
+            write_grads=False,
+            write_graph=False,
+            write_images=True,
+            histogram_freq=1,
+            batch_size=batch_size
         )
+        callbacks_list = [savemodel, history, tensorboard]
+    else:
+        callbacks_list = [savemodel, history]
 
-        history = training_callbacks.SaveEpochInfo(
-            save_folder=save_foldername,
-            model_name=model_name,
-            train_params=train_params,
-            train_imdb=train_imdb
+    save_config_file(save_foldername, model_name, timestamp, train_params, train_imdb, val_imdb, optimizer)
+
+    train_gen = data_gen.DataGenerator(
+        train_imdb,
+        batch_size,
+        aug_fn_args,
+        aug_mode,
+        aug_probs,
+        aug_fly,
+        shuffle,
+        normalise=normalise,
+        ram_load=ram_load,
+    )
+
+    val_gen = data_gen.DataGenerator(
+        val_imdb,
+        batch_size,
+        aug_val_fn_args,
+        aug_val_mode,
+        aug_val_probs,
+        aug_val_fly,
+        shuffle,
+        normalise=normalise,
+        ram_load=ram_load,
+    )
+
+    train_gen_total_samples = train_gen.get_total_samples()
+    if batch_size > train_gen_total_samples:
+        log.error(
+            f"The batch size ({batch_size}) cannot be larger than the number of training samples " \
+            f"({train_gen_total_samples})"
         )
+        exit(1)
+    log.info(f"Train generator total number of samples: {train_gen_total_samples}")
 
-        if use_tensorboard is True:
-            tensorboard = TensorBoard(
-                log_dir=save_foldername / Path("tensorboard"),
-                write_grads=False,
-                write_graph=False,
-                write_images=True,
-                histogram_freq=1,
-                batch_size=batch_size
-            )
-            callbacks_list = [savemodel, history, tensorboard]
-        else:
-            callbacks_list = [savemodel, history]
-
-        save_config_file(save_foldername, model_name, timestamp, train_params, train_imdb, val_imdb, optimizer)
-
-        train_gen = data_gen.DataGenerator(
-            train_imdb,
-            batch_size,
-            aug_fn_args,
-            aug_mode,
-            aug_probs,
-            aug_fly,
-            shuffle,
-            normalise=normalise,
-            ram_load=ram_load,
+    val_gen_total_samples = val_gen.get_total_samples()
+    if batch_size > val_gen_total_samples:
+        log.error(
+            f"The batch size ({batch_size}) cannot be larger than the number of validation samples "\
+            f"({val_gen_total_samples})"
         )
+        exit(1)
+    log.info(f"Validation generator total number of samples: {val_gen_total_samples}")
 
-        val_gen = data_gen.DataGenerator(
-            val_imdb,
-            batch_size,
-            aug_val_fn_args,
-            aug_val_mode,
-            aug_val_probs,
-            aug_val_fly,
-            shuffle,
-            normalise=normalise,
-            ram_load=ram_load,
-        )
-
-        train_gen_total_samples = train_gen.get_total_samples()
-        if batch_size > train_gen_total_samples:
-            log.error(
-                f"The batch size ({batch_size}) cannot be larger than the number of training samples " \
-                f"({train_gen_total_samples})"
-            )
-            exit(1)
-        log.info(f"Train generator total number of samples: {train_gen_total_samples}")
-
-        val_gen_total_samples = val_gen.get_total_samples()
-        if batch_size > val_gen_total_samples:
-            log.error(
-                f"The batch size ({batch_size}) cannot be larger than the number of validation samples "\
-                f"({val_gen_total_samples})"
-            )
-            exit(1)
-        log.info(f"Validation generator total number of samples: {val_gen_total_samples}")
-
-
-        model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
-        model.summary()
-        model_info = model.fit(
-            x=train_gen,
-            validation_data=val_gen,
-            epochs=epochs,
-            callbacks=callbacks_list,
-            verbose=1,
-            class_weight=train_params.class_weight,
-        )
+    model.summary()
+    model_info = model.fit(
+        x=train_gen,
+        validation_data=val_gen,
+        epochs=epochs,
+        callbacks=callbacks_list,
+        verbose=1,
+        class_weight=train_params.class_weight,
+    )
 
 
 def train_model(
@@ -294,18 +306,6 @@ def train_model(
     train_labels = to_categorical(train_labels, num_classes)
     val_labels = to_categorical(val_labels, num_classes)
 
-    initial_model_path = training_params.initial_model
-    if initial_model_path:
-        log.info(f"Starting training from model: {initial_model_path}")
-        # TODO: Fix, 'descs' should be read from some metadata field or separate config
-        model = [common.load_model(initial_model_path), "U-net", "U-net"]
-    else:
-        log.info(f"Starting training from scratch oct-unet model")
-        model = unet.get_standard_model(
-            input_channels=input_channels,
-            num_classes=num_classes,
-        )
-
     train_imdb = imdb.ImageDatabase(
         images=train_images,
         labels=train_labels,
@@ -327,6 +327,7 @@ def train_model(
     train_network(
         train_imdb,
         val_imdb,
-        model,
-        training_params
+        training_params,
+        input_channels,
+        num_classes,
     )
