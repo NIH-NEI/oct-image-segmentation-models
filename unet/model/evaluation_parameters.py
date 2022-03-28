@@ -9,16 +9,18 @@ from unet.model import common
 from unet.model import save_parameters as sparams
 
 
-class PredictionDataset:
+class Dataset:
     def __init__(
         self,
-        prediction_images: np.array,
-        prediction_images_names: list[Path],
-        prediction_images_output_dirs: list[Path]
+        images: np.array,
+        images_masks: np.array,
+        images_names: list[Path],
+        images_output_dirs: list[Path]
     ):
-        self.prediction_images = prediction_images
-        self.prediction_images_names = prediction_images_names
-        self.prediction_images_output_dirs = prediction_images_output_dirs
+        self.images = images
+        self.images_masks = images_masks
+        self.images_names = images_names
+        self.images_output_dirs = images_output_dirs
 
 
 class EvaluationParameters:
@@ -103,7 +105,7 @@ class EvaluationParameters:
     def __init__(
         self,
         model_file_path: Path,
-        prediction_dataset: PredictionDataset | Path,
+        dataset: Dataset,
         is_evaluate: bool,
         col_error_range,
         save_foldername: Path,
@@ -137,7 +139,7 @@ class EvaluationParameters:
         thresh=0.5
     ):
         self.model_file_path = model_file_path
-        self.prediction_dataset = prediction_dataset
+        self.dataset = dataset
         self.is_evaluate = is_evaluate
         self.binarize = binarize
         self.binarize_after = binarize_after

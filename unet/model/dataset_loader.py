@@ -1,3 +1,5 @@
+from pathlib import Path
+
 def load_training_data(hdf5_data_file):
     train_images = hdf5_data_file["train_images"][:]
     train_labels = hdf5_data_file["train_labels"][:]
@@ -24,6 +26,6 @@ def load_testing_data(hdf5_data_file):
     test_segs = hdf5_data_file.get("test_segs")
     if test_segs:
         test_segs = test_segs[:]
-    test_image_names = [f"image_{i}" for i in range(len(test_images))]
+    test_image_names = [Path(Path(str(x)).name) for x in hdf5_data_file.get("test_images_source")]
 
     return test_images, test_labels, test_segs, test_image_names

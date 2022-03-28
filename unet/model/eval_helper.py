@@ -190,7 +190,7 @@ def evaluate_semantic_network(eval_params, imdb):
                 convert_time,
                 activations,
                 layer_outputs,
-                eval_params.prediction_dataset.prediction_images_output_dirs[ind]
+                eval_params.dataset.images_output_dirs[ind]
             )
 
         if eval_params.boundaries is True and (
@@ -215,10 +215,10 @@ def evaluate_semantic_network(eval_params, imdb):
                 and eval_params.save_params.boundary_maps is True
             ):
                 boundary_maps = load_dataset_extra(
-                    eval_params.prediction_dataset.prediction_images_output_dirs[ind], cur_image_name, "boundary_maps"
+                    eval_params.dataset.images_output_dirs[ind], cur_image_name, "boundary_maps"
                 )
                 if eval_params.is_evaluate and eval_params.dice_errors is True:
-                    dices = load_dataset(eval_params.prediction_dataset.prediction_images_output_dirs[ind], cur_image_name, "dices")
+                    dices = load_dataset(eval_params.dataset.images_output_dirs[ind], cur_image_name, "dices")
                 else:
                     dices = None
 
@@ -233,7 +233,7 @@ def evaluate_semantic_network(eval_params, imdb):
                 imdb,
                 dices,
                 eval_output,
-                eval_params.prediction_dataset.prediction_images_output_dirs[ind]
+                eval_params.dataset.images_output_dirs[ind]
             )
 
         elif eval_params.boundaries is False:
@@ -241,14 +241,14 @@ def evaluate_semantic_network(eval_params, imdb):
                 eval_params.save_params.disable is False
                 and eval_params.save_params.attributes is True
             ):
-                save_final_attributes(eval_params, cur_image_name, graph_time=None, output_dir=eval_params.prediction_dataset.prediction_images_output_dirs[ind])
+                save_final_attributes(eval_params, cur_image_name, graph_time=None, output_dir=eval_params.dataset.images_output_dirs[ind])
 
         if (
             eval_params.save_params.disable is False
             and eval_params.save_params.temp_extra is True
         ):
             delete_loadsaveextra_file(
-                eval_params.prediction_dataset.prediction_images_output_dirs[ind],
+                eval_params.dataset.images_output_dirs[ind],
                 cur_image_name
             )
 

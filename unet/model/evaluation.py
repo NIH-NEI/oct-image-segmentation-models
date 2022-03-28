@@ -2,53 +2,36 @@ from __future__ import annotations
 
 import h5py
 import logging as log
+import numpy as np
 from pathlib import Path
 from tensorflow.keras.utils import to_categorical
 
+from unet.min_path_processing import utils
 from unet.model import augmentation as aug
 from unet.model import dataset_construction as dc
 from unet.model import dataset_loader as dl
 from unet.model import eval_helper
 from unet.model import image_database as imdb
 from unet.model import save_parameters
-from unet.model.evaluation_parameters import EvaluationParameters, PredictionDataset
+from unet.model.evaluation_parameters import EvaluationParameters, Dataset
 
 
 def evaluate_model(
     eval_params: EvaluationParameters,
 ):
-    if issubclass(type(eval_params.prediction_dataset), Path):
-        test_dataset_file = h5py.File(eval_params.prediction_dataset, 'r')
 
-        test_images, test_labels, test_segments, test_image_names = dl.load_testing_data(
-            test_dataset_file
-        )
-
-        test_image_names = [ Path(x) for x in test_image_names ]
-    elif type(eval_params.prediction_dataset) == PredictionDataset:
-        pred_dataset = eval_params.prediction_dataset
-        test_images = pred_dataset.prediction_images
-        test_labels = None
-        test_segments = None
-        test_image_names = pred_dataset.prediction_images_names
-    else:
-        raise TypeError("'prediction_dataset' should be a 'Path' or a 'PredictionDataset'")
-
-    if eval_params.is_evaluate:
-        # If segments are provided, then build labels from segments and ignore provided labels
-        if not test_segments is None:
-            log.info("Found 'test_segs' in HDF5 dataset so constructing labels from them")
-            test_labels = dc.create_all_area_masks(test_images, test_segments)
-        else:
-            log.info("'test_segs' not found. Using 'test_labels' struct in HDF5 dataset directly")
-        test_labels = to_categorical(test_labels, eval_params.num_classes)
-    else:
-        test_labels = None
+    dataset = eval_params.dataset
+    test_images = dataset.images
+    test_labels = dataset.images_masks
+    test_image_names = dataset.images_names
 
     AREA_NAMES = ["area_" + str(i) for i in range(eval_params.num_classes)]
     BOUNDARY_NAMES = ["boundary_" + str(i) for i in range(eval_params.num_classes - 1)]
 
-    filename = eval_params.prediction_dataset if type(eval_params.prediction_dataset) == Path else None
+    test_segments = None
+    if eval_params.is_evaluate:
+        test_segments = np.swapaxes(utils.generate_boundary(np.squeeze(test_labels, axis=3), axis=2), 0, 1)
+        test_labels = to_categorical(test_labels, eval_params.num_classes)
 
     eval_imdb = imdb.ImageDatabase(
         images=test_images,
@@ -59,7 +42,7 @@ def evaluate_model(
         area_names=AREA_NAMES,
         fullsize_class_names=AREA_NAMES,
         num_classes=eval_params.num_classes,
-        filename=filename,
+        filename=None,
         mode_type='fullsize'
     )
 
