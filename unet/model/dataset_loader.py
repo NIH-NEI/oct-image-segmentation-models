@@ -17,6 +17,6 @@ def load_validation_data(hdf5_data_file):
 def load_testing_data(hdf5_data_file):
     test_images = hdf5_data_file['test_images'][:]
     test_labels = hdf5_data_file["test_labels"][:]
-    test_image_names = [Path(Path(str(x)).name) for x in hdf5_data_file.get("test_images_source")]
+    test_image_paths = [Path(str(x, "ascii")) for x in hdf5_data_file.get("test_images_source")]
 
-    return test_images, test_labels, test_image_names
+    return test_images, test_labels, test_image_paths
