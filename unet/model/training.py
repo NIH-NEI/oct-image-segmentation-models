@@ -290,8 +290,8 @@ def train_model(
 
     # images numpy array should be of the shape: (number of images, image width, image height, 1)
     # segments numpy array should be of the shape: (number of images, number of boundaries, image width)
-    train_images, train_labels, train_segs = dataset_loader.load_training_data(training_hdf5_file)
-    val_images, val_labels, val_segs = dataset_loader.load_validation_data(training_hdf5_file)
+    train_images, train_labels = dataset_loader.load_training_data(training_hdf5_file)
+    val_images, val_labels = dataset_loader.load_validation_data(training_hdf5_file)
 
     num_classes = len(np.unique(train_labels))
     log.info(f"Detected {num_classes} classes")
