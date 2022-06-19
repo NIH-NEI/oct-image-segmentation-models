@@ -16,7 +16,7 @@ def get_version():
     return version
 
 def get_install_requires():
-    return ["matplotlib", "tensorflow==2.7.0"]
+    return ["matplotlib", "mlflow", "tensorflow==2.7.0"]
 
 
 def get_long_description():

@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import tensorflow as tf
 
+from unet.common import utils
 from unet.model import augmentation as aug
-from unet.model import common
 from unet.model import save_parameters as sparams
 
 
@@ -181,7 +181,7 @@ class EvaluationParameters:
 
         self.save_foldername = save_foldername
 
-        self.loaded_model = common.load_model(model_file_path)
+        self.loaded_model = utils.load_model(model_file_path)
         self.num_classes = self.loaded_model.output.shape[-1]
 
         if self.verbosity >= 1:

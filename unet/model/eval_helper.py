@@ -9,8 +9,8 @@ from pathlib import Path
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
 
+from unet.common import utils
 from unet.model import augmentation as aug
-from unet.model import common
 from unet.model import data_generator
 from unet.model import dataset_construction as datacon
 from unet.model import evaluation_output as eoutput
@@ -1021,7 +1021,7 @@ def save_intermediate_attributes_semantic(
     loadsave_file.attrs["augment_time"] = np.array(augment_time)
     loadsave_file.attrs["generator_time"] = np.array(generator_time)
     loadsave_file.attrs["intermediate_timestamp"] = np.array(
-        common.get_timestamp(), dtype="S100"
+        utils.get_timestamp(), dtype="S100"
     )
     if eval_params.save_params.boundary_maps is True:
         loadsave_file.attrs["complete_predict"] = True
@@ -1037,7 +1037,7 @@ def save_final_attributes(eval_params, name, graph_time, output_dir):
     loadsave_file = open_append_loadsave_file(output_dir, name)
 
     loadsave_file.attrs["final_timestamp"] = np.array(
-        common.get_timestamp(), dtype="S100"
+        utils.get_timestamp(), dtype="S100"
     )
 
     if eval_params.boundaries is True:

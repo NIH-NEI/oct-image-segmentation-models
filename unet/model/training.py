@@ -1,27 +1,27 @@
 import os
+import sys
 
+import getpass
 import h5py
-
 import logging as log
+import mlflow
+from mlflow.exceptions import MlflowException
 import numpy as np
+from pathlib import Path
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 from tensorflow.keras.utils import to_categorical
-import tensorflow.keras.optimizers
-from pathlib import Path
 
-from unet.model import augmentation as aug
-from unet.model import common
-from unet.model import custom_losses
-from unet.model import custom_metrics
+from unet.common import utils
+from unet.common.mlflow_parameters import MLflowParameters
 from unet.model import image_database as imdb
 from unet.model import data_generator as data_gen
 from unet.model import dataset_loader
-from unet.model import dataset_construction
 from unet.model import training_callbacks
 from unet.model import training_parameters as tparams
 from unet.model import unet
 
+mlflow.autolog()
 
 def save_config_file(
     save_foldername: Path,
@@ -132,7 +132,7 @@ def train_network(train_imdb, val_imdb, train_params, input_channels, num_classe
     if initial_model_path:
         log.info(f"Starting training from model: {initial_model_path}")
         # TODO: Fix, 'descs' should be read from some metadata field or separate config
-        model, model_name, model_name_short = [common.load_model(initial_model_path), "U-net", "U-net"]
+        model, model_name, model_name_short = [utils.load_model(initial_model_path), "U-net", "U-net"]
     else:
         log.info(f"Starting training from scratch oct-unet model")
         with strategy.scope():
@@ -178,7 +178,7 @@ def train_network(train_imdb, val_imdb, train_params, input_channels, num_classe
 
     dataset_name = train_imdb.name
 
-    timestamp = common.get_timestamp()
+    timestamp = utils.get_timestamp()
 
     results_location = train_params.results_location
     save_foldername = results_location / Path(timestamp + "_" + model_name_short + "_" + dataset_name)
@@ -280,8 +280,24 @@ def train_network(train_imdb, val_imdb, train_params, input_channels, num_classe
 
 
 def train_model(
-    training_params: tparams.TrainingParams
+    training_params: tparams.TrainingParams,
+    mlflow_params: MLflowParameters=None,
 ):
+    if mlflow_params:
+        if mlflow_params.username:
+            os.environ["MLFLOW_TRACKING_USERNAME"] = mlflow_params.username
+        else:
+            if not os.getenv("MLFLOW_TRACKING_USERNAME"): # Only set env variable if not already set
+                os.environ["MLFLOW_TRACKING_USERNAME"] = getpass.getuser()
+        if mlflow_params.password:
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = mlflow_params.password
+        mlflow.set_tracking_uri(mlflow_params.tracking_uri)
+        try:
+            mlflow.set_experiment(mlflow_params.experiment)
+        except MlflowException as e:
+            log.exception(msg=f"An error occurred while setting MLflow experiment. Exception message: {e.message}")
+            sys.exit(1)
+
     if training_params.channels_last:
         tf.keras.backend.set_image_data_format("channels_last")
 
