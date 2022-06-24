@@ -1,19 +1,14 @@
 from __future__ import annotations
 
-import h5py
 import logging as log
 import numpy as np
 from pathlib import Path
 from tensorflow.keras.utils import to_categorical
 
 from unet.min_path_processing import utils
-from unet.model import augmentation as aug
-from unet.model import dataset_construction as dc
-from unet.model import dataset_loader as dl
 from unet.model import eval_helper
 from unet.model import image_database as imdb
-from unet.model import save_parameters
-from unet.model.evaluation_parameters import EvaluationParameters, Dataset
+from unet.model.evaluation_parameters import EvaluationParameters
 
 
 def evaluate_model(

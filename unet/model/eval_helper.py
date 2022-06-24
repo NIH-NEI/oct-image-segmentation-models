@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 
 import h5py
@@ -9,15 +8,12 @@ from pathlib import Path
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
 
-from unet.common import utils
-from unet.model import augmentation as aug
+from unet.common import dataset_construction as datacon, plotting, utils
+from unet.min_path_processing import graph_search
 from unet.model import data_generator
-from unet.model import dataset_construction as datacon
 from unet.model import evaluation_output as eoutput
 from unet.model import evaluation_parameters as eparams
-from unet.model import graph_search
 from unet.model import image_database as image_db
-from unet.model import plotting
 from unet.model import results_collation
 
 
@@ -135,7 +131,7 @@ def evaluate_semantic_network(eval_params, imdb):
 
         start_convert_time = time.time()
 
-        [comb_area_map, area_maps] = perform_argmax(
+        [comb_area_map, area_maps] = utils.perform_argmax(
             predicted_labels, bin=eval_params.binarize
         )
 
@@ -148,7 +144,7 @@ def evaluate_semantic_network(eval_params, imdb):
         ):
             boundary_maps = None
         else:
-            boundary_maps = convert_predictions_to_maps_semantic(
+            boundary_maps = utils.convert_predictions_to_maps_semantic(
                 np.array(area_maps),
                 bg_ilm=eval_params.bg_ilm,
                 bg_csi=eval_params.bg_csi,
@@ -291,13 +287,13 @@ def eval_second_step(
         eval_params
     )
 
-    reconstructed_maps = datacon.create_area_mask(cur_augment_image, delineations)
+    reconstructed_maps = datacon.create_area_mask(cur_augment_image.shape, delineations)
     reconstructed_maps = to_categorical(
         reconstructed_maps, num_classes=imdb.num_classes
     )
     reconstructed_maps = np.expand_dims(reconstructed_maps, axis=0)
 
-    [comb_area_map_recalc, reconstructed_maps] = perform_argmax(reconstructed_maps)
+    [comb_area_map_recalc, reconstructed_maps] = utils.perform_argmax(reconstructed_maps)
 
     if eval_params.is_evaluate and eval_params.dice_errors == True:
         recalc_dices = calc_dice(
@@ -338,12 +334,7 @@ def eval_second_step(
     # FINAL SAVE
     if eval_params.save_params.disable is False:
         if eval_params.save_params.delineations is True:
-            save_boundaries_to_csv(
-                delineations,
-                output_dir
-                / cur_image_name.stem
-                / Path("boundaries.csv"),
-            )
+            np.savetxt(output_dir / cur_image_name.stem / Path("boundaries.csv"), delineations, delimiter=",", fmt="%d")
 
             np.savetxt(
                 output_dir / cur_image_name.stem / Path("segmentation_map.csv"),
@@ -512,10 +503,7 @@ def eval_second_step(
                         cur_augment_image,
                         cm.gray,
                         get_loadsave_path(output_dir, cur_image_name)
-                        + "/"
-                        + "delin_plot_pair"
-                        + str(i)
-                        + ".png",
+                        / Path("delin_plot_pair" + str(i) + ".png"),
                         delineations[i : i + 2],
                         predictions=None,
                         column_range=eval_params.col_error_range,
@@ -787,9 +775,7 @@ def intermediate_save_semantic(
                 plotting.save_image_plot(
                     prob_maps[map_ind],
                     get_loadsave_path(output_dir, cur_image_name)
-                    + "/boundary_map_"
-                    + boundary_name
-                    + ".png",
+                    / Path("boundary_map_" + boundary_name + ".png"),
                     cmap=cm.Blues,
                 )
     if eval_params.save_params.raw_image is True:
@@ -1193,26 +1179,6 @@ def calc_dice(eval_params, predictions, labels):
     return dices
 
 
-def perform_argmax(predictions, bin=True):
-    if K.image_data_format() == "channels_last":
-        pass
-    else:
-        predictions = np.transpose(predictions, (0, 2, 3, 1))
-
-    num_maps = predictions.shape[3]
-
-    if bin:
-        argmax_pred = np.argmax(predictions, axis=3)
-
-        categorical_pred = to_categorical(argmax_pred, num_maps)
-        categorical_pred = np.transpose(categorical_pred, axes=(0, 3, 1, 2))
-    else:
-        argmax_pred = np.argmax(predictions, axis=3)
-        categorical_pred = np.transpose(predictions, axes=(0, 3, 1, 2))
-
-    return [argmax_pred, categorical_pred]
-
-
 def calc_areas(y_pred, y_true):
     areas = []
     area_diffs = []
@@ -1231,149 +1197,3 @@ def calc_areas(y_pred, y_true):
 def save_boundaries_to_csv(boundaries, ouput_path):
     np.savetxt(ouput_path, boundaries, delimiter=",", fmt="%d")
 
-
-def convert_predictions_to_maps_semantic(categorical_pred, bg_ilm=True, bg_csi=False):
-    num_samples = categorical_pred.shape[0]
-    img_width = categorical_pred.shape[2]
-    img_height = categorical_pred.shape[3]
-    num_maps = categorical_pred.shape[1]
-
-    boundary_maps = np.zeros(
-        (num_samples, num_maps - 1, img_width, img_height), dtype="uint8"
-    )
-
-    for sample_ind in range(num_samples):
-        for map_ind in range(1, num_maps):  # don't care about boundary for top region
-
-            if (map_ind == 1 and bg_ilm is True) or (
-                map_ind == num_maps - 1 and bg_csi is True
-            ):
-                cur_map = categorical_pred[sample_ind, map_ind - 1, :, :]
-
-                grad_map = np.gradient(cur_map, axis=1)
-
-                grad_map = -grad_map
-
-                grad_map[grad_map < 0] = 0
-
-                grad_map *= 2  # scale map to between 0 and 1
-
-                rolled_grad = np.roll(grad_map, -1, axis=1)
-
-                grad_map -= rolled_grad
-                grad_map[grad_map < 0] = 0
-                boundary_maps[sample_ind, map_ind - 1, :, :] = convert_maps_uint8(
-                    grad_map
-                )
-            else:
-                cur_map = categorical_pred[sample_ind, map_ind, :, :]
-
-                grad_map = np.gradient(cur_map, axis=1)
-
-                grad_map[grad_map < 0] = 0
-
-                grad_map *= 2  # scale map to between 0 and 1
-
-                rolled_grad = np.roll(grad_map, -1, axis=1)
-
-                grad_map -= rolled_grad
-                grad_map[grad_map < 0] = 0
-                boundary_maps[sample_ind, map_ind - 1, :, :] = convert_maps_uint8(
-                    grad_map
-                )
-
-    return boundary_maps
-
-
-def convert_predictions_to_maps_semantic_vertical(
-    categorical_pred, bg_ilm=True, bg_csi=False
-):
-    num_samples = categorical_pred.shape[0]
-    img_width = categorical_pred.shape[2]
-    img_height = categorical_pred.shape[3]
-    num_maps = categorical_pred.shape[1]
-
-    boundary_maps = np.zeros(
-        (num_samples, num_maps - 1, img_width, img_height), dtype="uint8"
-    )
-
-    for sample_ind in range(num_samples):
-        for map_ind in range(1, num_maps):  # don't care about boundary for top region
-
-            if map_ind == 1 and bg_ilm is True:
-                cur_map = categorical_pred[sample_ind, map_ind - 1, :, :]
-
-                grad_map = np.gradient(cur_map, axis=(0, 1))
-
-                grad_map[1] = -grad_map[1]
-
-                grad_map[1][grad_map[1] < 0] = 0
-
-                grad_map[1] *= 2  # scale map to between 0 and 1
-
-                grad_map[0] = np.abs(grad_map[0])
-
-                grad_map[0] *= 2
-
-                rolled_grad = np.roll(grad_map[1], -1, axis=1)
-
-                grad_map[1] -= rolled_grad
-
-                grad_map[1][grad_map[1] < 0] = 0
-
-                grad_map = np.add(grad_map[0], grad_map[1])
-
-                boundary_maps[sample_ind, map_ind - 1, :, :] = convert_maps_uint8(
-                    grad_map
-                )
-            elif map_ind == num_maps - 1 and bg_csi is True:
-                cur_map = categorical_pred[sample_ind, map_ind - 1, :, :]
-
-                grad_map = np.gradient(cur_map, axis=(0, 1))
-
-                grad_map[1] = -grad_map[1]
-
-                grad_map[1][grad_map[1] < 0] = 0
-
-                grad_map[1] *= 2  # scale map to between 0 and 1
-
-                grad_map[0] = np.abs(grad_map[0])
-
-                grad_map[0] *= 2
-
-                rolled_grad = np.roll(grad_map[1], -1, axis=1)
-
-                grad_map[1] -= rolled_grad
-
-                grad_map[1][grad_map[1] < 0] = 0
-
-                grad_map = np.add(grad_map[0], grad_map[1])
-
-                boundary_maps[sample_ind, map_ind - 1, :, :] = convert_maps_uint8(
-                    grad_map
-                )
-            else:
-                cur_map = categorical_pred[sample_ind, map_ind, :, :]
-
-                grad_map = np.gradient(cur_map, axis=(0, 1))
-
-                grad_map[1][grad_map[1] < 0] = 0
-
-                grad_map[1] *= 2  # scale map to between 0 and 1
-
-                grad_map[0] = np.abs(grad_map[0])
-
-                grad_map[0] *= 2
-
-                rolled_grad = np.roll(grad_map[1], -1, axis=1)
-
-                grad_map[1] -= rolled_grad
-                grad_map[1][grad_map[1] < 0] = 0
-
-                grad_map = np.add(grad_map[0], grad_map[1])
-
-                boundary_maps[sample_ind, map_ind - 1, :, :] = convert_maps_uint8(
-                    grad_map
-                )
-
-    return boundary_maps

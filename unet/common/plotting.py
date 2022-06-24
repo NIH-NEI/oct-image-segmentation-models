@@ -1,7 +1,10 @@
 from matplotlib import pyplot as plt
-from matplotlib import colors
+from matplotlib import cm, colors
 import numpy as np
+from pathlib import Path
 from tensorflow.keras import backend as K
+from typeguard import typechecked
+
 
 predict_colours = ['#4285f4', '#db4437', '#f4b400', '#0f9d58', '#ff6d00', '#46bdc6', '#ab30c4', '#fde8ff']
 truth_colours = ['#2b5790', '#7a261e', '#9b7200', '#085630', '#8e3d00', '#26686d', '#5f1a6d', '#f266ff']
@@ -98,7 +101,8 @@ def setup_image_plot(image, cmap, vmin=None, vmax=None):
         plt.imshow(np.transpose(image), cmap=cmap, vmin=vmin, vmax=vmax)
 
 
-def save_image_plot(image, filename, cmap, vmin=None, vmax=None):
+@typechecked
+def save_image_plot(image: np.array, filename: Path, cmap: cm, vmin: int=None, vmax: int=None):
     setup_image_plot(image, cmap, vmin, vmax)
 
     plt.savefig(filename)

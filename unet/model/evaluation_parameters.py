@@ -5,22 +5,9 @@ import numpy as np
 import tensorflow as tf
 
 from unet.common import utils
+from unet.common.dataset import Dataset
 from unet.model import augmentation as aug
 from unet.model import save_parameters as sparams
-
-
-class Dataset:
-    def __init__(
-        self,
-        images: np.array,
-        images_masks: np.array,
-        images_names: list[Path],
-        images_output_dirs: list[Path]
-    ):
-        self.images = images
-        self.images_masks = images_masks
-        self.images_names = images_names
-        self.images_output_dirs = images_output_dirs
 
 
 class EvaluationParameters:

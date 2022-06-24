@@ -1,7 +1,8 @@
+import datetime
+import numpy as np
 import h5py
 import time
-import numpy as np
-import datetime
+from typeguard import typechecked
 
 from tensorflow.keras import backend as K
 
@@ -492,35 +493,24 @@ def pad_patch_image(image, patch_size):
     return pad_image
 
 
-def create_all_area_masks(images, segs):
-    all_masks = []
-
-    for i in range(images.shape[0]):
-        masks = create_area_mask(images[i], segs[i])
-        all_masks.append(masks)
-
-    all_masks = np.array(all_masks)
-
-    return all_masks
-
-
 # note that each area does not include the pixels of the boundary of which it ends, the boundaries belong to the
 # first pixel of their corresponding regions (in a top to bottom sense)
-def create_area_mask(image, segs):
-    if image.ndim == 3:
+@typechecked
+def create_area_mask(image_shape: tuple, segs: np.array):
+    if len(image_shape) == 3:
         if K.image_data_format() == 'channels_last':
-            mask_shape = image.shape[:-1]
+            mask_shape = image_shape[:-1]
 
         elif K.image_data_format() == 'channels_first':
-            mask_shape = image.shape[1:]
+            mask_shape = image_shape[1:]
     else:
-        mask_shape = image.shape
+        mask_shape = image_shape
 
     mask = np.zeros(mask_shape, dtype='uint8')
     image_width = mask_shape[0]
     image_height = mask_shape[1]
 
-    if image.ndim == 3:
+    if len(image_shape) == 3:
         if K.image_data_format() == 'channels_last':
             mask = np.expand_dims(mask, axis=-1)
         elif K.image_data_format() == 'channels_first':
