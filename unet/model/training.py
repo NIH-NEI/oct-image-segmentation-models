@@ -141,7 +141,8 @@ def train_network(train_imdb, val_imdb, train_params, input_channels, num_classe
                 num_classes=num_classes,
             )
             model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
-
+    print("bye")
+    exit(1)
     batch_size = train_params.batch_size
     aug_fn_args = train_params.aug_fn_args
     aug_mode = train_params.aug_mode
