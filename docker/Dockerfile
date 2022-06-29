@@ -9,4 +9,4 @@ RUN apt-key del 7fa2af80 && \
 
 RUN apt-get install -y vim
 
-RUN pip install prettytable art pillow matplotlib
+RUN pip install prettytable art pillow==9.0.1 matplotlib mlflow
