@@ -4,7 +4,7 @@ import os
 # 1. MAJOR version when you make incompatible API changes;
 # 2. MINOR version when you add functionality in a backwards-compatible manner;
 # 3. PATCH version when you make backwards-compatible bug fixes.
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 import matplotlib
 # There is a memory buildup in matplotlib. For now current solution is to use "Agg"
