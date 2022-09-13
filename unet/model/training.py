@@ -291,6 +291,12 @@ def train_model(
                 os.environ["MLFLOW_TRACKING_USERNAME"] = getpass.getuser()
         if mlflow_params.password:
             os.environ["MLFLOW_TRACKING_PASSWORD"] = mlflow_params.password
+        else:
+            if not os.environ.get("MLFLOW_TRACKING_PASSWORD"):
+                log.error("MLFlow password not provided and MLFLOW_TRACKING_PASSWORD environment "
+                "not set. Exiting...")
+                exit(1)
+
         mlflow.set_tracking_uri(mlflow_params.tracking_uri)
         try:
             mlflow.set_experiment(mlflow_params.experiment)
