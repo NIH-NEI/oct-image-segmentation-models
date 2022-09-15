@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import numpy as np
-import tensorflow as tf
 
 from unet.common import utils
 from unet.common.dataset import Dataset
@@ -111,7 +109,6 @@ class EvaluationParameters:
         trim_maps=False,
         trim_ref_ind=0,
         trim_window=(0, 0),
-        collate_results=True,
         dice_errors=True,
         flatten_image=False,
         flatten_ind=0,
@@ -146,7 +143,6 @@ class EvaluationParameters:
         self.trim_maps = trim_maps
         self.trim_ref_ind = trim_ref_ind
         self.trim_window = trim_window
-        self.collate_results = collate_results
         self.dice_errors = dice_errors
         self.flatten_image = flatten_image
         self.flatten_ind = flatten_ind

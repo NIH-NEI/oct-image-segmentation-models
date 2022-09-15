@@ -14,29 +14,17 @@ from unet.model import data_generator
 from unet.model import evaluation_output as eoutput
 from unet.model import evaluation_parameters as eparams
 from unet.model import image_database as image_db
-from unet.model import results_collation
 
 
 def evaluate_network(
     imdb,
     eval_params,
 ):
-    if eval_params.save_params.disable is False:
-        save_eval_config_file(eval_params, imdb)
+    save_eval_config_file(eval_params, imdb)
 
     eval_outputs = evaluate_semantic_network(eval_params, imdb)
 
-    if not eval_params.save_params.disable and eval_params.collate_results and eval_params.is_evaluate:
-        if eval_params.eval_mode == "network" or eval_params.boundaries is False or eval_params.boundary_errors is False:
-            inc_boundary_errors = False
-        else:
-            inc_boundary_errors = True
-
-        results_collation.calc_overall_dataset_errors(
-            eval_params.save_foldername,
-            inc_boundary_errors=inc_boundary_errors,
-            inc_dice=eval_params.dice_errors,
-        )
+    calc_overall_dataset_errors(eval_params.save_foldername)
 
     return eval_outputs
 
@@ -1196,4 +1184,152 @@ def calc_areas(y_pred, y_true):
 
 def save_boundaries_to_csv(boundaries, ouput_path):
     np.savetxt(ouput_path, boundaries, delimiter=",", fmt="%d")
+
+
+def calc_overall_dataset_errors(folder_path: Path):
+    """
+    Note: This function doesn't support nested directories. TODO: Add support.
+
+    ---
+
+    'errors' shape: (# of images, number of boundaries, image width)
+    'dices' shape: (# of images, number of boundaries + 2 == number of classes + 1)
+    """
+    dir_list = os.listdir(folder_path)
+
+    errors = None
+    dices = None
+    dices_recon = None
+    obj_names = []
+
+    # Loop through each evaluated image
+    for obj_name in dir_list:
+        if os.path.isdir(folder_path / Path(obj_name)):
+            filename = folder_path / Path(obj_name) / Path("evaluations.hdf5")
+
+            if os.path.exists(filename):
+                file = h5py.File(filename, 'r')
+
+                obj_names.append(obj_name)
+
+                error_col_bounds = file.attrs["error_col_bounds"]
+                file_errors = file["errors"][:, error_col_bounds[0]:error_col_bounds[1] + 1]
+
+                if errors is None:
+                    errors = np.expand_dims(file_errors, 0)
+                else:
+                    errors = np.concatenate((errors, np.expand_dims(file_errors, 0)), 0)
+
+                file_dices = file["dices"][:]
+
+                if dices is None:
+                    dices = np.expand_dims(file_dices, 0)
+                else:
+                    dices = np.concatenate((dices, np.expand_dims(file_dices, 0)), 0)
+
+                file_dices_recon = file["dices_recon"][:]
+
+                if dices_recon is None:
+                    dices_recon = np.expand_dims(file_dices_recon, 0)
+                else:
+                    dices_recon = np.concatenate((dices_recon, np.expand_dims(file_dices_recon, 0)), 0)
+            else:
+                # no evaluations file in this folder
+                pass
+
+    save_filename = folder_path / Path("results.hdf5")
+    save_file = h5py.File(save_filename, 'w')
+
+    save_textfilename = folder_path / Path("results.csv")
+    save_textfile = open(save_textfilename, 'w')
+
+    save_file['image_names'] = np.array(obj_names, dtype='S100')
+
+    # Boundary Errors
+    mean_abs_errors_cols = np.nanmean(np.abs(errors), axis=0)
+    mean_abs_errors_samples = np.nanmean(np.abs(errors), axis=2)
+    sd_abs_errors_samples = np.nanstd(np.abs(errors), axis=2)
+    mean_abs_errors = np.nanmean(mean_abs_errors_samples, axis=0)
+    sd_abs_errors = np.nanstd(mean_abs_errors_samples, axis=0)
+
+    median_abs_errors = np.nanmedian(mean_abs_errors_samples, axis=0)
+
+    mean_errors_cols = np.nanmean(errors, axis=0)
+    mean_errors_samples = np.nanmean(errors, axis=2)
+    mean_errors = np.nanmean(mean_errors_samples, axis=0)
+    sd_errors = np.nanstd(mean_errors_samples, axis=0)
+
+    median_errors = np.nanmedian(mean_errors_samples, axis=0)
+
+    save_file['mean_abs_errors_cols'] = mean_abs_errors_cols
+    save_file['mean_abs_errors_samples'] = mean_abs_errors_samples
+    save_file['mean_abs_errors'] = mean_abs_errors
+    save_file['sd_abs_errors'] = sd_abs_errors
+    save_file['median_abs_errors'] = median_abs_errors
+    save_file['sd_abs_errors_samples'] = sd_abs_errors_samples
+
+    save_file['mean_errors_cols'] = mean_errors_cols
+    save_file['mean_errors_samples'] = mean_errors_samples
+    save_file['mean_errors'] = mean_errors
+    save_file['sd_errors'] = sd_errors
+    save_file['median_errors'] = median_errors
+
+    save_file['errors'] = errors
+
+    save_textfile.write("Mean abs errors,")
+    write_array_to_csvfile(save_textfile, mean_abs_errors)
+
+    save_textfile.write("Mean errors,")
+    write_array_to_csvfile(save_textfile, mean_errors)
+
+    save_textfile.write("Median absolute errors,")
+    write_array_to_csvfile(save_textfile, median_abs_errors)
+
+    save_textfile.write("SD abs errors,")
+    write_array_to_csvfile(save_textfile, sd_abs_errors)
+
+    save_textfile.write("SD errors,")
+    write_array_to_csvfile(save_textfile, sd_errors)
+
+    # Dice
+    save_file['dices'] = dices
+
+    mean_dices = np.nanmean(dices, axis=0)
+    sd_dices = np.nanstd(dices, axis=0)
+
+    save_file['mean_dices'] = mean_dices
+    save_file['sd_dices'] = sd_dices
+
+    save_textfile.write("Mean dices,")
+    write_array_to_csvfile(save_textfile, mean_dices)
+
+    save_textfile.write("SD dices,")
+    write_array_to_csvfile(save_textfile, sd_dices)
+
+    # Reconstructed Dice Coeff.
+    save_file['dices_recon'] = dices_recon
+
+    mean_dices_recon = np.mean(dices_recon, axis=0)
+    sd_dices_recon = np.std(dices_recon, axis=0)
+
+    save_file['mean_dices_recon'] = mean_dices_recon
+    save_file['sd_dices_recon'] = sd_dices_recon
+
+    save_textfile.write("Mean dices recon,")
+    write_array_to_csvfile(save_textfile, mean_dices_recon)
+
+    save_textfile.write("SD dices recon,")
+    write_array_to_csvfile(save_textfile, sd_dices_recon)
+
+    save_file.close()
+    save_textfile.close()
+
+
+def write_array_to_csvfile(csv_file, array):
+    for i in range(len(array)):
+        csv_file.write(str(array[i]))
+        if i != len(array) - 1:
+            csv_file.write(",")
+
+    csv_file.write('\n')
 
