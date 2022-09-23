@@ -9,7 +9,7 @@ from mlflow.exceptions import MlflowException
 import numpy as np
 from pathlib import Path
 import tensorflow as tf
-from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
+from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.utils import to_categorical
 
 from unet.common import utils
@@ -172,8 +172,9 @@ def train_network(
     loss = train_params.loss
     metric = train_params.metric
     epochs = train_params.epochs
-
     initial_model_path = train_params.initial_model
+    early_stopping = train_params.early_stopping
+
     if initial_model_path:
         log.info(f"Starting training from model: {initial_model_path}")
         # TODO: Fix, 'descs' should be read from some metadata field or
@@ -199,7 +200,6 @@ def train_network(
     aug_fly = train_params.aug_fly
     aug_val = train_params.aug_val
     use_gen = train_params.use_gen
-    use_tensorboard = train_params.use_tensorboard
     ram_load = train_imdb.ram_load
 
     if use_gen is False and ram_load == 0:
@@ -279,18 +279,13 @@ def train_network(
         train_imdb=train_imdb,
     )
 
-    if use_tensorboard is True:
-        tensorboard = TensorBoard(
-            log_dir=save_foldername / Path("tensorboard"),
-            write_grads=False,
-            write_graph=False,
-            write_images=True,
-            histogram_freq=1,
-            batch_size=batch_size,
+    callbacks_list = [savemodel, history]
+
+    if early_stopping:
+        early_stopping_callback = tf.keras.callbacks.EarlyStopping(
+            monitor="val_dice_coef", mode="max", patience=5
         )
-        callbacks_list = [savemodel, history, tensorboard]
-    else:
-        callbacks_list = [savemodel, history]
+        callbacks_list.append(early_stopping_callback)
 
     save_config_file(
         save_foldername,

@@ -56,9 +56,9 @@ class TrainingParams:
         model_save_monitor=("val_acc", "max"),
         normalise=True,
         use_gen=True,
-        use_tensorboard=False,
         class_weight=None,
         channels_last: bool = True,
+        early_stopping: bool = True,
     ):
         self.training_dataset_path = training_dataset_path
         self.training_dataset_name = training_dataset_name
@@ -80,9 +80,9 @@ class TrainingParams:
         self.model_save_best = model_save_best
         self.model_save_monitor = model_save_monitor
         self.use_gen = use_gen
-        self.use_tensorboard = use_tensorboard
         self.class_weight = class_weight
         self.channels_last = channels_last
+        self.early_stopping = early_stopping
 
         if type(loss) is not str:
             self.loss_name = self.loss.__name__
