@@ -1,7 +1,6 @@
 import os
 import sys
 
-import getpass
 import h5py
 import logging as log
 import mlflow
@@ -158,22 +157,97 @@ def save_config_file(
     config_file.attrs["ram_load"] = train_imdb.ram_load
 
 
-def train_network(
-    train_imdb, val_imdb, train_params, input_channels, num_classes
+def train_model(
+    training_params: tparams.TrainingParams,
+    mlflow_params: MLflowParameters = None,
 ):
+    if mlflow_params:
+        if mlflow_params.username:
+            os.environ["MLFLOW_TRACKING_USERNAME"] = mlflow_params.username
+        else:
+            # Only set env variable if not already set
+            if not os.getenv("MLFLOW_TRACKING_USERNAME"):
+                log.error(
+                    "MLFlow username not provided and "
+                    "MLFLOW_TRACKING_USERNAME environment variable not set. "
+                    "Exiting..."
+                )
+                exit(1)
+        if mlflow_params.password:
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = mlflow_params.password
+        else:
+            if not os.environ.get("MLFLOW_TRACKING_PASSWORD"):
+                log.error(
+                    "MLFlow password not provided and "
+                    "MLFLOW_TRACKING_PASSWORD environment variable not set. "
+                    "Exiting..."
+                )
+                exit(1)
+
+        mlflow.set_tracking_uri(mlflow_params.tracking_uri)
+        try:
+            mlflow.set_experiment(mlflow_params.experiment)
+        except MlflowException:
+            log.exception(
+                msg="An error occurred while setting MLflow experiment"
+            )
+            sys.exit(1)
+
+    if training_params.channels_last:
+        tf.keras.backend.set_image_data_format("channels_last")
+
+    training_dataset_path = training_params.training_dataset_path
+    training_hdf5_file = h5py.File(training_dataset_path, "r")
+
+    # images numpy array should be of the shape: (number of images, image
+    # width, image height, 1) segments numpy array should be of the shape:
+    # (number of images, number of boundaries, image width)
+    train_images, train_labels = dataset_loader.load_training_data(
+        training_hdf5_file
+    )
+    val_images, val_labels = dataset_loader.load_validation_data(
+        training_hdf5_file
+    )
+
+    num_classes = len(np.unique(train_labels))
+    log.info(f"Detected {num_classes} classes")
+    input_channels = train_images.shape[-1]
+    log.info(f"Detected {input_channels} input channels")
+    training_dataset_name = training_params.training_dataset_name
+    train_labels = to_categorical(train_labels, num_classes)
+    val_labels = to_categorical(val_labels, num_classes)
+
+    train_imdb = imdb.ImageDatabase(
+        images=train_images,
+        labels=train_labels,
+        name=training_dataset_name,
+        filename=training_dataset_path,
+        mode_type="fullsize",
+        num_classes=num_classes,
+    )
+
+    val_imdb = imdb.ImageDatabase(
+        images=val_images,
+        labels=val_labels,
+        name=training_params.training_dataset_name,
+        filename=training_dataset_path,
+        mode_type="fullsize",
+        num_classes=num_classes,
+    )
+
     strategy = tf.distribute.MirroredStrategy()
     log.info(f"Number of devices: {strategy.num_replicas_in_sync}")
 
-    optimizer_con = train_params.opt_con
-    optimizer_params = train_params.opt_params
+    optimizer_con = training_params.opt_con
+    optimizer_params = training_params.opt_params
 
     optimizer = optimizer_con(**optimizer_params)
 
-    loss = train_params.loss
-    metric = train_params.metric
-    epochs = train_params.epochs
-    initial_model_path = train_params.initial_model
-    early_stopping = train_params.early_stopping
+    loss = training_params.loss
+    metric = training_params.metric
+    epochs = training_params.epochs
+    initial_model_path = training_params.initial_model
+    early_stopping = training_params.early_stopping
 
     if initial_model_path:
         log.info(f"Starting training from model: {initial_model_path}")
@@ -193,13 +267,13 @@ def train_network(
             )
             model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
 
-    batch_size = train_params.batch_size
-    aug_fn_args = train_params.aug_fn_args
-    aug_mode = train_params.aug_mode
-    aug_probs = train_params.aug_probs
-    aug_fly = train_params.aug_fly
-    aug_val = train_params.aug_val
-    use_gen = train_params.use_gen
+    batch_size = training_params.batch_size
+    aug_fn_args = training_params.aug_fn_args
+    aug_mode = training_params.aug_mode
+    aug_probs = training_params.aug_probs
+    aug_fly = training_params.aug_fly
+    aug_val = training_params.aug_val
+    use_gen = training_params.use_gen
     ram_load = train_imdb.ram_load
 
     if use_gen is False and ram_load == 0:
@@ -220,17 +294,17 @@ def train_network(
         aug_val_probs = aug_probs
         aug_val_fly = aug_fly
 
-    shuffle = train_params.shuffle
-    normalise = train_params.normalise
-    monitor = train_params.model_save_monitor
+    shuffle = training_params.shuffle
+    normalise = training_params.normalise
+    monitor = training_params.model_save_monitor
 
-    save_best = train_params.model_save_best
+    save_best = training_params.model_save_best
 
     dataset_name = train_imdb.name
 
     timestamp = utils.get_timestamp()
 
-    results_location = train_params.results_location
+    results_location = training_params.results_location
     save_foldername = results_location / Path(
         timestamp + "_" + model_name_short + "_" + dataset_name
     )
@@ -275,7 +349,7 @@ def train_network(
     history = training_callbacks.SaveEpochInfo(
         save_folder=save_foldername,
         model_name=model_name,
-        train_params=train_params,
+        train_params=training_params,
         train_imdb=train_imdb,
     )
 
@@ -291,7 +365,7 @@ def train_network(
         save_foldername,
         model_name,
         timestamp,
-        train_params,
+        training_params,
         train_imdb,
         val_imdb,
         optimizer,
@@ -351,87 +425,5 @@ def train_network(
         epochs=epochs,
         callbacks=callbacks_list,
         verbose=1,
-        class_weight=train_params.class_weight,
-    )
-
-
-def train_model(
-    training_params: tparams.TrainingParams,
-    mlflow_params: MLflowParameters = None,
-):
-    if mlflow_params:
-        if mlflow_params.username:
-            os.environ["MLFLOW_TRACKING_USERNAME"] = mlflow_params.username
-        else:
-            # Only set env variable if not already set
-            if not os.getenv("MLFLOW_TRACKING_USERNAME"):
-                os.environ["MLFLOW_TRACKING_USERNAME"] = getpass.getuser()
-        if mlflow_params.password:
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = mlflow_params.password
-        else:
-            if not os.environ.get("MLFLOW_TRACKING_PASSWORD"):
-                log.error(
-                    "MLFlow password not provided and "
-                    "MLFLOW_TRACKING_PASSWORD environment not set. Exiting..."
-                )
-                exit(1)
-
-        mlflow.set_tracking_uri(mlflow_params.tracking_uri)
-        try:
-            mlflow.set_experiment(mlflow_params.experiment)
-        except MlflowException as e:
-            log.exception(
-                msg=f"An error occurred while setting MLflow "
-                f"experiment. Exception message: {e.message}"
-            )
-            sys.exit(1)
-
-    if training_params.channels_last:
-        tf.keras.backend.set_image_data_format("channels_last")
-
-    training_dataset_path = training_params.training_dataset_path
-    training_hdf5_file = h5py.File(training_dataset_path, "r")
-
-    # images numpy array should be of the shape: (number of images, image
-    # width, image height, 1) segments numpy array should be of the shape:
-    # (number of images, number of boundaries, image width)
-    train_images, train_labels = dataset_loader.load_training_data(
-        training_hdf5_file
-    )
-    val_images, val_labels = dataset_loader.load_validation_data(
-        training_hdf5_file
-    )
-
-    num_classes = len(np.unique(train_labels))
-    log.info(f"Detected {num_classes} classes")
-    input_channels = train_images.shape[-1]
-    log.info(f"Detected {input_channels} input channels")
-    training_dataset_name = training_params.training_dataset_name
-    train_labels = to_categorical(train_labels, num_classes)
-    val_labels = to_categorical(val_labels, num_classes)
-
-    train_imdb = imdb.ImageDatabase(
-        images=train_images,
-        labels=train_labels,
-        name=training_dataset_name,
-        filename=training_dataset_path,
-        mode_type="fullsize",
-        num_classes=num_classes,
-    )
-
-    val_imdb = imdb.ImageDatabase(
-        images=val_images,
-        labels=val_labels,
-        name=training_params.training_dataset_name,
-        filename=training_dataset_path,
-        mode_type="fullsize",
-        num_classes=num_classes,
-    )
-
-    train_network(
-        train_imdb,
-        val_imdb,
-        training_params,
-        input_channels,
-        num_classes,
+        class_weight=training_params.class_weight,
     )
