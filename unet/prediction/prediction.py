@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import time
@@ -53,18 +52,21 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
     predict_images = dataset.images
     predict_image_names = dataset.images_names
     predict_image_output_dirs = dataset.images_output_dirs
-    
+
     save_predict_config_file(predict_params)
 
     prediction_outputs = []
 
     # pass images to network one at a time
-    for i, (predict_image, image_name, image_output_dir) in enumerate(zip(predict_images, predict_image_names, predict_image_output_dirs)):
-        log.info(f"Inferring image {i}: {image_name}")
-        
+    for i, (predict_image, image_name, image_output_dir) in enumerate(
+        zip(predict_images, predict_image_names, predict_image_output_dirs)
+    ):
+        log.info(f"Inferring image {i}: {image_name}")    
         start_predict_time = time.time()        
         predicted_probs = predict_params.loaded_model.predict(
-            np.expand_dims(predict_image/255, axis=0), # keras works with batches
+            np.expand_dims(
+                predict_image / 255, axis=0
+            ),  # keras works with batches
             verbose=2,
             batch_size=1,
         )
@@ -76,15 +78,20 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
         start_convert_time = time.time()
 
         """
-            predicted_labels: A matrix of shape (1, image_width, image_height) that contains the
-            predicted classes numbered from 0 to num_classes - 1.
-            categorical_pred: A matrix of shape (num_classes, image_width, image_height) that
-            contains:
-            - If 'bin' == True: 1 on pixels that belong the class and 0 otherwise.
-            - If 'bin' == False: Prediction probabilities for each pixel per class.
+        predicted_labels: A matrix of shape (1, image_width, image_height) that
+        contains the predicted classes numbered from 0 to num_classes - 1.
+
+        categorical_pred: A matrix of shape (num_classes, image_width,
+        image_height) that contains:
+            - If 'bin' == True: 1 on pixels that belong the class and 0
+            otherwise.
+            - If 'bin' == False: Prediction probabilities for each pixel per
+            class.
         """
-        [predicted_labels, categorical_pred] = utils.perform_argmax(predicted_probs, bin=True)
-       
+        [predicted_labels, categorical_pred] = utils.perform_argmax(
+            predicted_probs, bin=True
+        )
+
         boundary_maps = utils.convert_predictions_to_maps_semantic(
             np.array(categorical_pred),
             bg_ilm=True,
@@ -114,7 +121,9 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
         # Segment probability maps using graph search
         log.info("Running graph search, segmenting boundary maps...")
         num_classes = len(categorical_pred)
-        graph_structure = graph_search.create_graph_structure(predict_image.shape)
+        graph_structure = graph_search.create_graph_structure(
+            predict_image.shape
+        )
 
         start_graph_time = time.time()
         delineations, errors, trim_maps = graph_search.segment_maps(
@@ -124,17 +133,27 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
             predict_params,
         )
 
-        reconstructed_maps = datacon.create_area_mask(predict_image.shape, delineations)
-        reconstructed_maps = to_categorical(reconstructed_maps, num_classes=num_classes)
+        reconstructed_maps = datacon.create_area_mask(
+            predict_image.shape, delineations
+        )
+        reconstructed_maps = to_categorical(
+            reconstructed_maps, num_classes=num_classes
+        )
         reconstructed_maps = np.expand_dims(reconstructed_maps, axis=0)
 
-        [prediction_label_gs, reconstructed_maps] = utils.perform_argmax(reconstructed_maps)
+        [prediction_label_gs, reconstructed_maps] = utils.perform_argmax(
+            reconstructed_maps
+        )
 
         prediction_label_gs = np.squeeze(prediction_label_gs)
 
         [flattened_image, offsets, flatten_boundary] = (None, None, None)
         if predict_params.flatten_image:
-            [flattened_image, offsets, flatten_boundary] = datacon.flatten_image_boundary(
+            [
+                flattened_image,
+                offsets,
+                flatten_boundary,
+            ] = datacon.flatten_image_boundary(
                 predict_image,
                 delineations[predict_params.flatten_ind],
                 poly=predict_params.flatten_poly,
@@ -180,7 +199,9 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
 
 @typechecked
 def save_predict_config_file(predict_params: PredictionParams):
-    config_file = h5py.File(predict_params.config_output_dir / Path("prediction_params.hdf5"), "w")
+    config_file = h5py.File(
+        predict_params.config_output_dir / Path("prediction_params.hdf5"), "w"
+    )
 
     config_file.attrs["model_filename"] = np.array(
         predict_params.model_path, dtype="S1000"
@@ -206,7 +227,9 @@ def save_image_prediction_results(
     hdf5_file = h5py.File(output_dir / Path("unet_prediction_info.hdf5"), "w")
 
     if pred_params.save_params.categorical_pred is True:
-        hdf5_file.create_dataset("categorical_pred", data=categorical_pred, dtype="uint8")
+        hdf5_file.create_dataset(
+            "categorical_pred", data=categorical_pred, dtype="uint8"
+        )
 
         if pred_params.save_params.png_images is True:
             for map_ind in range(len(categorical_pred)):
@@ -217,7 +240,9 @@ def save_image_prediction_results(
                 )
 
     if pred_params.save_params.predicted_labels is True:
-        hdf5_file.create_dataset("predicted_labels", data=predicted_labels, dtype="uint8")
+        hdf5_file.create_dataset(
+            "predicted_labels", data=predicted_labels, dtype="uint8"
+        )
 
         if pred_params.save_params.png_images is True:
             plotting.save_image_plot(
@@ -229,8 +254,10 @@ def save_image_prediction_results(
             )
 
     if pred_params.save_params.boundary_maps is True:
-        hdf5_file.create_dataset("boundary_maps", data=boundary_maps, dtype="uint8")
-        
+        hdf5_file.create_dataset(
+            "boundary_maps", data=boundary_maps, dtype="uint8"
+        )
+
         if (
             pred_params.save_params.png_images is True
             and pred_params.save_params.individual_raw_boundary_pngs
@@ -255,9 +282,7 @@ def save_image_prediction_results(
     hdf5_file.attrs["model_filename"] = np.array(
         pred_params.model_path, dtype="S1000"
     )
-    hdf5_file.attrs["image_name"] = np.array(
-        image_name, dtype="S1000"
-    )
+    hdf5_file.attrs["image_name"] = np.array(image_name, dtype="S1000")
     hdf5_file.attrs["timestamp"] = np.array(
         utils.get_timestamp(), dtype="S1000"
     )
@@ -282,18 +307,29 @@ def save_graph_based_prediction_results(
 ):
     num_classes = delineations.shape[0] + 1
     # Save graph search based prediction results
-    hdf5_file = h5py.File(output_dir / Path("graph_search_prediction_info.hdf5"), "w")
+    hdf5_file = h5py.File(
+        output_dir / Path("graph_search_prediction_info.hdf5"), "w"
+    )
 
-    np.savetxt(output_dir / Path("boundaries.csv"), delineations, delimiter=",", fmt="%d")
+    np.savetxt(
+        output_dir / Path("boundaries.csv"),
+        delineations,
+        delimiter=",",
+        fmt="%d",
+    )
 
     np.savetxt(
         output_dir / Path("segmentation_map.csv"),
-        np.transpose(prediction_label_gs), fmt="%d", delimiter=","
+        np.transpose(prediction_label_gs),
+        fmt="%d",
+        delimiter=",",
     )
 
     hdf5_file.create_dataset("delineations", data=delineations, dtype="uint16")
 
-    hdf5_file.create_dataset("prediction_label_gs", data=prediction_label_gs, dtype="uint8")
+    hdf5_file.create_dataset(
+        "prediction_label_gs", data=prediction_label_gs, dtype="uint8"
+    )
 
     plotting.save_image_plot(
         prediction_label_gs,
@@ -312,7 +348,10 @@ def save_graph_based_prediction_results(
         column_range=predict_params.col_error_range,
     )
 
-    if predict_params.save_params.individual_seg_plots and predict_params.save_params.png_images:
+    if (
+        predict_params.save_params.individual_seg_plots
+        and predict_params.save_params.png_images
+    ):
         for i in range(delineations.shape[0]):
             plotting.save_segmentation_plot(
                 predict_image,
@@ -328,18 +367,22 @@ def save_graph_based_prediction_results(
     hdf5_file.attrs["model_filename"] = np.array(
         predict_params.model_path, dtype="S1000"
     )
-    hdf5_file.attrs["image_name"] = np.array(
-        image_name, dtype="S1000"
-    )
+    hdf5_file.attrs["image_name"] = np.array(image_name, dtype="S1000")
     hdf5_file.attrs["timestamp"] = np.array(
         utils.get_timestamp(), dtype="S1000"
     )
     hdf5_file.attrs["graph_time"] = np.array(graph_time)
 
     if predict_params.flatten_image:
-        hdf5_file.create_dataset("flatten_boundary", data=flatten_boundary, dtype="uint16")
-        hdf5_file.create_dataset("flatten_image", data=flattened_image, dtype="uint8")
-        hdf5_file.create_dataset("flatten_offsets", data=offsets, dtype="uint16")
+        hdf5_file.create_dataset(
+            "flatten_boundary", data=flatten_boundary, dtype="uint16"
+        )
+        hdf5_file.create_dataset(
+            "flatten_image", data=flattened_image, dtype="uint8"
+        )
+        hdf5_file.create_dataset(
+            "flatten_offsets", data=offsets, dtype="uint16"
+        )
         if predict_params.save_params.png_images:
             plotting.save_image_plot(
                 flattened_image,
