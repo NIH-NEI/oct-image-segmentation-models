@@ -10,6 +10,7 @@ from pathlib import Path
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.utils import to_categorical
+from typeguard import typechecked
 
 from unet.common import utils
 from unet.common.mlflow_parameters import MLflowParameters
@@ -20,12 +21,11 @@ from unet.model import training_callbacks
 from unet.model import training_parameters as tparams
 from unet.model import unet
 
-mlflow.autolog()
 
-
+@typechecked
 def save_config_file(
     save_foldername: Path,
-    model_name,
+    model_summary: str,
     timestamp,
     train_params,
     train_imdb,
@@ -37,7 +37,7 @@ def save_config_file(
     config_file = h5py.File(config_filename, "w")
 
     config_file.attrs["timestamp"] = np.array(timestamp, dtype="S100")
-    config_file.attrs["model_name"] = np.array(model_name, dtype="S1000")
+    config_file.attrs["model_summary"] = np.array(model_summary, dtype="S1000")
     config_file.attrs["train_imdb"] = np.array(
         train_imdb.filename, dtype="S100"
     )
@@ -162,6 +162,7 @@ def train_model(
     mlflow_params: MLflowParameters = None,
 ):
     if mlflow_params:
+        mlflow.autolog()
         if mlflow_params.username:
             os.environ["MLFLOW_TRACKING_USERNAME"] = mlflow_params.username
         else:
@@ -251,20 +252,20 @@ def train_model(
 
     if initial_model_path:
         log.info(f"Starting training from model: {initial_model_path}")
-        # TODO: Fix, 'descs' should be read from some metadata field or
-        # separate config
-        model, model_name, model_name_short = [
-            utils.load_model(initial_model_path),
-            "U-net",
-            "U-net",
-        ]
+        model = utils.load_model(initial_model_path)
     else:
-        log.info("Starting training from scratch oct-unet model")
+        log.info("Starting training from scratch U-net model")
         with strategy.scope():
-            model, model_name, model_name_short = unet.get_standard_model(
+            model = unet.unet(
+                8,
+                4,
+                2,
+                (3, 3),
+                (2, 2),
                 input_channels=input_channels,
-                num_classes=num_classes,
+                output_channels=num_classes,
             )
+
             model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
 
     batch_size = training_params.batch_size
@@ -306,7 +307,7 @@ def train_model(
 
     results_location = training_params.results_location
     save_foldername = results_location / Path(
-        timestamp + "_" + model_name_short + "_" + dataset_name
+        timestamp + "_U-net_" + dataset_name
     )
 
     if not os.path.exists(save_foldername):
@@ -314,24 +315,12 @@ def train_model(
     else:
         count = 2
         testsave_foldername = results_location / Path(
-            timestamp
-            + "_"
-            + str(count)
-            + "_"
-            + model_name_short
-            + "_"
-            + dataset_name
+            timestamp + "_" + str(count) + "_U-net_" + dataset_name
         )
         while os.path.exists(testsave_foldername):
             count += 1
             testsave_foldername = results_location / Path(
-                timestamp
-                + "_"
-                + str(count)
-                + "_"
-                + model_name_short
-                + "_"
-                + dataset_name
+                timestamp + "_" + str(count) + "_U-net_" + dataset_name
             )
 
         save_foldername = testsave_foldername
@@ -348,9 +337,7 @@ def train_model(
 
     history = training_callbacks.SaveEpochInfo(
         save_folder=save_foldername,
-        model_name=model_name,
         train_params=training_params,
-        train_imdb=train_imdb,
     )
 
     callbacks_list = [savemodel, history]
@@ -361,9 +348,11 @@ def train_model(
         )
         callbacks_list.append(early_stopping_callback)
 
+    model_summary = []
+    model.summary(print_fn=lambda line: model_summary.append(line))
     save_config_file(
         save_foldername,
-        model_name,
+        "\n".join(model_summary),
         timestamp,
         training_params,
         train_imdb,
