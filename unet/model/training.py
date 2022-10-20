@@ -162,33 +162,24 @@ def train_model(
     mlflow_params: MLflowParameters = None,
 ):
     if mlflow_params:
-        mlflow.autolog()
+        mlflow.keras.autolog(save_format="h5")
         if mlflow_params.username:
             os.environ["MLFLOW_TRACKING_USERNAME"] = mlflow_params.username
-        else:
-            # Only set env variable if not already set
-            if not os.getenv("MLFLOW_TRACKING_USERNAME"):
-                log.error(
-                    "MLFlow username not provided and "
-                    "MLFLOW_TRACKING_USERNAME environment variable not set. "
-                    "Exiting..."
-                )
-                exit(1)
+
         if mlflow_params.password:
             os.environ["MLFLOW_TRACKING_PASSWORD"] = mlflow_params.password
-        else:
-            if not os.environ.get("MLFLOW_TRACKING_PASSWORD"):
-                log.error(
-                    "MLFlow password not provided and "
-                    "MLFLOW_TRACKING_PASSWORD environment variable not set. "
-                    "Exiting..."
-                )
-                exit(1)
 
         mlflow.set_tracking_uri(mlflow_params.tracking_uri)
         try:
             mlflow.set_experiment(mlflow_params.experiment)
-        except MlflowException:
+        except MlflowException as exc:
+            if exc.get_http_status_code() == 401:
+                log.error(
+                    "Looks like the MLFLow client is not authorized to log "
+                    "into the MLFlow server. Make sure the environment "
+                    "variables 'MLFLOW_TRACKING_USERNAME' and "
+                    "'MLFLOW_TRACKING_PASSWORD' are correct"
+                )
             log.exception(
                 msg="An error occurred while setting MLflow experiment"
             )
