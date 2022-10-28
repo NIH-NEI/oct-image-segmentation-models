@@ -3,25 +3,30 @@ import numpy as np
 
 
 def run_dijkstras(prob_map, start_ind, graph_structure):
-    """Run dijkstra's algorithm using graph formed by a specified probability map (weights) and graph structure (edges).
+    """Run dijkstra's algorithm using graph formed by a specified probability
+    map (weights) and graph structure (edges).
     Start index indicates which node to begin from
     _________
 
     prob_map: probability map, numpy array with shape: (width, height).
     _________
 
-    graph_structure: a 2D list where the first dimension is the index of the vertex and
-    the second dimension contains the indices for the neighbours which it connects to with a directed edge
+    graph_structure: a 2D list where the first dimension is the index of the
+    vertex and the second dimension contains the indices for the neighbours
+    which it connects to with a directed edge
     _________
 
-    start_ind: start index expects a number indicating what node (index) to start the search from
+    start_ind: start index expects a number indicating what node (index) to
+    start the search from
     _________
 
     Returns:
 
-        List of shortest paths. One for each vertex indexed by vertex number which is either:
+        List of shortest paths. One for each vertex indexed by vertex number
+        which is either:
         (1): 0 indicating unreachable vertex or
-        (2): a tuple of the form: (final shortest path length, previous vertex index)
+        (2): a tuple of the form: (final shortest path length, previous vertex
+        index)
     __________
 
     Indices are calculated by: index = column + (row * graph width)
@@ -31,14 +36,17 @@ def run_dijkstras(prob_map, start_ind, graph_structure):
     max_ind = prob_map.shape[0] * prob_map.shape[1] - 1
 
     # setup list containing final shortest paths
-    # each element corresponds to a vertex (vertex index = list index) and is a tuple expected to be of the form:
-    # (final shortest distance to vertex, previous vertex visited on final shortest path)
+    # each element corresponds to a vertex (vertex index = list index) and is
+    # a tuple expected to be of the form:
+    # (final shortest distance to vertex, previous vertex visited on final
+    # shortest path)
     shortest_paths = [None] * (prob_map.shape[0] * prob_map.shape[1])
 
     # setup queue to contain incomplete vertices
-    # each queue entry corresponds to a vertex and is a tuple expected to be of the form:
-    # (current shortest distance to vertex, neighbour priority (lower is higher),
-    # index of vertex, previous vertex visited on shortest path)
+    # each queue entry corresponds to a vertex and is a tuple expected to be
+    # of the form:
+    # (current shortest distance to vertex, neighbour priority (lower is
+    # higher), index of vertex, previous vertex visited on shortest path)
     candidates_q = [(0, 0, 0, start_ind, 0)]
 
     add_count = 1
@@ -47,10 +55,12 @@ def run_dijkstras(prob_map, start_ind, graph_structure):
         path_len, _, _, v, a = heappop(candidates_q)
         if shortest_paths[v] is None:
             # we have not found the shortest path for v yet
-            shortest_paths[v] = (path_len, a)  # found final shortest path for this vertex
+            shortest_paths[v] = (path_len, a)  # found final shortest path
+            # for this vertex
 
             if v == max_ind:
-                # we have found the shortest path to the bottom-rightmost corner -> we are DONE!
+                # we have found the shortest path to the bottom-rightmost
+                # corner -> we are DONE!
                 break
 
             num_neighbours = len(graph_structure[v])
@@ -83,7 +93,8 @@ def run_dijkstras(prob_map, start_ind, graph_structure):
                     # we have already finished this neighbour vertex
                     # we won't find a shorter path so don't bother with it
         else:
-            # we have already finished this vertex, we won't find a shorter path so don't bother with it
+            # we have already finished this vertex, we won't find a shorter
+            # path so don't bother with it
             pass
 
     # assign zero distance to unreachable vertices
@@ -94,15 +105,17 @@ def create_graph_structure(shape, max_grad=1):
     """Create structure for a gridded graph of specified shape
     _________
 
-    shape: Shape of graph which is expected as a tuple of the form (width, height).
-    Here width does not include the first and last additional appended columns, these are automatically
-    appended in here.
+    shape: Shape of graph which is expected as a tuple of the form
+    (width, height).
+    Here width does not include the first and last additional appended columns,
+    these are automatically appended in here.
     _________
 
     Returns:
 
-        graph structure info as a 2D list where the first dimension is the index of the vertex
-        and the second dimension contains the indices of it's neighbours which it connects to with a directed edge
+        graph structure info as a 2D list where the first dimension is the
+        index of the vertex and the second dimension contains the indices of
+        it's neighbours which it connects to with a directed edge
     _________
 
     Indices are calculated by: index = column + (row * graph width)
@@ -134,7 +147,8 @@ def create_graph_structure(shape, max_grad=1):
             node_right = (j + 1) + i * graph_width
             node_down = (j) + (i + 1) * graph_width
 
-            # add neighbours as required for various cases of first/middle/last, row/col
+            # add neighbours as required for various cases of
+            # first/middle/last, row/col
             # ensuring that non-existent neighbours are not added
             # example non-existent neighbour: a vertex below the bottommost row
 
@@ -236,7 +250,8 @@ def create_graph_structure_vertical(shape):
             node_down = (j) + (i + 1) * graph_width
             node_up = (j) + (i - 1) * graph_width
 
-            # add neighbours as required for various cases of first/middle/last, row/col
+            # add neighbours as required for various cases of
+            # first/middle/last, row/col
             # ensuring that non-existent neighbours are not added
             # example non-existent neighbour: a vertex below the bottommost row
 
@@ -316,7 +331,8 @@ def create_graph_structure_vertical(shape):
 
 
 def append_firstlast_cols(prob_map):
-    """Append first and last columns of probability one (maximum probability) to a given map
+    """Append first and last columns of probability one (maximum probability)
+    to a given map
     _________
 
     prob_map: probability map, numpy array with shape: (width, height)
@@ -329,34 +345,39 @@ def append_firstlast_cols(prob_map):
 
     map_height = prob_map.shape[1]
 
-    prob_map = np.concatenate((np.ones((1, map_height)), prob_map), axis=0)  # append first col
-    prob_map = np.concatenate((prob_map, np.ones((1, map_height))), axis=0)  # append last col
+    # append first col
+    prob_map = np.concatenate((np.ones((1, map_height)), prob_map), axis=0)
+    # append last col
+    prob_map = np.concatenate((prob_map, np.ones((1, map_height))), axis=0)
 
     return prob_map
 
 
 def delineate_boundary(prob_map, graph_structure):
-    """Delineate boundary (obtain a single row prediction for each column) for given probability map using a
-    gridded graph constructed both from the probabilities of the map and the specified graph connectivity structure.
+    """Delineate boundary (obtain a single row prediction for each column) for
+    given probability map using a gridded graph constructed both from the
+    probabilities of the map and the specified graph connectivity structure.
     _________
 
     prob_map: probability map, numpy array with shape (width, height).
     Values in map should be normalised between 0 and 1.
     _________
 
-    graph_structure: a 2D list where the first dimension is the index of the vertex and
-    the second dimension contains the indices for the neighbours connected with a directed edge
+    graph_structure: a 2D list where the first dimension is the index of the
+    vertex and the second dimension contains the indices for the neighbours
+    connected with a directed edge
     _________
 
-    Returns a numpy array containing the delineated boundary positions for the prob map (one row position
-    for each column as required), shape: (width,)
+    Returns a numpy array containing the delineated boundary positions for the
+    prob map (one row position for each column as required), shape: (width,)
     _________
 
     Indices are calculated by:
 
         index = column + row * graph width
 
-    To go back and extract row and column for position tuple of the form (col, row):
+    To go back and extract row and column for position tuple of the form
+    (col, row):
 
         (ind % width, ind / width) = (ind % width, floor(ind / width))
     _________
@@ -373,20 +394,25 @@ def delineate_boundary(prob_map, graph_structure):
     final_node_ind = (map_width * map_height) - 1
 
     node_ind = final_node_ind  # current node index
-    node_coord = (node_ind % map_width, int(node_ind / map_width))  # current node coordinate
+    node_coord = (node_ind % map_width, int(node_ind / map_width))  # current
+    # node coordinate
     prev_node_ind = shortest_paths[node_ind][1]  # previous node index
 
-    node_order_coords = []  # list of node coordinates along shortest path in reverse order
+    node_order_coords = []  # list of node coordinates along shortest path
+    # in reverse order
 
-    while node_coord != (0, 0):  # keep adding while we haven't reached the start vertex
+    while node_coord != (0, 0):  # keep adding while we haven't reached
+        # the start vertex
         node_order_coords.append(node_coord)
-        next_node_coord = (prev_node_ind % map_width, int(prev_node_ind / map_width))
+        next_node_coord = (
+            prev_node_ind % map_width,
+            int(prev_node_ind / map_width),
+        )
         node_coord = next_node_coord
         prev_node_ind = shortest_paths[prev_node_ind][1]
 
-    delin = np.zeros(
-        (map_width - 2)
-    )  # numpy array of row values corresponding to the delineated boundary
+    delin = np.zeros((map_width - 2))  # numpy array of row values
+    # corresponding to the delineated boundary
     # (one for each column in the original map: exclude the appended columns)
 
     for coord in node_order_coords:
@@ -410,14 +436,20 @@ def delineate_boundary_vertical(prob_map, graph_structure):
     final_node_ind = (map_width * map_height) - 1
 
     node_ind = final_node_ind  # current node index
-    node_coord = (node_ind % map_width, int(node_ind / map_width))  # current node coordinate
+    # current node coordinate
+    node_coord = (node_ind % map_width, int(node_ind / map_width))
     prev_node_ind = shortest_paths[node_ind][1]  # previous node index
 
-    node_order_coords = []  # list of node coordinates along shortest path in reverse order
+    node_order_coords = []  # list of node coordinates along shortest path
+    # in reverse order
 
-    while node_coord != (0, 0):  # keep adding while we haven't reached the start vertex
+    while node_coord != (0, 0):  # keep adding while we haven't reached the
+        # start vertex
         node_order_coords.append(node_coord)
-        next_node_coord = (prev_node_ind % map_width, int(prev_node_ind / map_width))
+        next_node_coord = (
+            prev_node_ind % map_width,
+            int(prev_node_ind / map_width),
+        )
         node_coord = next_node_coord
         prev_node_ind = shortest_paths[prev_node_ind][1]
 
@@ -450,15 +482,18 @@ def calc_errors(prediction, truth):
     error = predicted value - true value
     _________
 
-    prediction: numpy array of integer values corresponding to the row prediction for each column.
+    prediction: numpy array of integer values corresponding to the row
+    prediction for each column.
     shape: (width,)
     _________
 
-    truth: numpy array of integer values corresponding to the true row position for each column.
+    truth: numpy array of integer values corresponding to the true row
+    position for each column.
     shape: (width,)
     _________
 
-    Returns numpy array containing the errors. Shape: (width,). Where error cannot be calculated or is invalid,
+    Returns numpy array containing the errors. Shape: (width,). Where error
+    cannot be calculated or is invalid,
     it is replaced by np.nan
     _________
     """
@@ -477,31 +512,37 @@ def calc_errors(prediction, truth):
     return error
 
 
-def segment_maps(prob_maps, truths, graph_structure, eval_params=None):
-    """Delineate boundaries using specified neighbours structure for a number of probability maps
-    and subsequently calculate delineation errors.
+def segment_maps(prob_maps, truths, graph_structure):
+    """Delineate boundaries using specified neighbours structure for a number
+    of probability maps and subsequently calculate delineation errors.
     _________
 
-    prob_maps: numpy array of probability maps with the shape: (number of maps/boundaries, width, height).
-    Probability map values assumed to be uint8 between 0 and 255. These will be normalised to between float64
+    prob_maps: numpy array of probability maps with the shape: (number of
+    maps/boundaries, width, height).
+    Probability map values assumed to be uint8 between 0 and 255. These will
+    be normalised to between float64
     0 and 1 here.
     _________
 
-    truths: numpy array of values with the shape: (number of maps/boundaries, width) corresponding to the true row
-    locations for each column for each map.
+    truths: numpy array of values with the shape: (number of maps/boundaries,
+    width) corresponding to the true row locations for each column for each
+    map.
     _________
 
-    graph_structure: a 2D list where the first dimension is the index of each vertex and
-    the second dimension contains the indices for the neighbours connected with a directed edge
+    graph_structure: a 2D list where the first dimension is the index of each
+    vertex and the second dimension contains the indices for the neighbours
+    connected with a directed edge
     _________
 
-    Returns delineations and errors for each probability map in numpy arrays. Two structures:
+    Returns delineations and errors for each probability map in numpy arrays.
+    Two structures:
 
-    (1) predictions: numpy array with shape: (number of maps, width) corresponding with a
-    predicted value for each column for each map
+    (1) predictions: numpy array with shape: (number of maps, width)
+    corresponding with a predicted value for each column for each map
 
-    (2) errors: numpy array with shape: (number of maps, width) corresponding to the error between the predicted
-    and true value for each column for each map
+    (2) errors: numpy array with shape: (number of maps, width) corresponding
+    to the error between the predicted and true value for each column for
+    each map
     _________
     """
 
@@ -514,80 +555,24 @@ def segment_maps(prob_maps, truths, graph_structure, eval_params=None):
     predictions = np.zeros((num_maps, width), dtype="uint16")
     errors = np.zeros((num_maps, width), dtype="float64")
 
-    if eval_params is not None and eval_params.trim_maps is True:
-        map_ind = eval_params.trim_ref_ind
-        ref_prediction = delineate_boundary(prob_maps[map_ind], graph_structure)
-        predictions[map_ind, :] = ref_prediction
-
-        if eval_params.flatten_pred_edges is True:
-            predictions[map_ind, : eval_params.flat_marg] = predictions[
-                map_ind, eval_params.flat_marg
-            ]
-            predictions[map_ind, -eval_params.flat_marg :] = predictions[
-                map_ind, -eval_params.flat_marg
-            ]
+    for map_ind in range(num_maps):
+        prediction = delineate_boundary(prob_maps[map_ind], graph_structure)
+        predictions[map_ind, :] = prediction
 
         if truths is not None:
-            error = calc_errors(ref_prediction, truths[map_ind, :])
-            errors[map_ind, :] = error
+            error = calc_errors(prediction, truths[map_ind, :])
+            errors[map_ind:, ] = error
 
-        top_bounds = ref_prediction.astype("uint16") - eval_params.trim_window[0]
-        bottom_bounds = ref_prediction.astype("uint16") + eval_params.trim_window[1]
-
-        top_bounds[top_bounds > 1000] = 0
-        bottom_bounds[bottom_bounds > 1000] = 0
-
-        for map_ind in range(num_maps):
-            if map_ind == eval_params.trim_ref_ind:
-                continue
-
-            for col in range(prob_maps.shape[1]):
-                prob_maps[map_ind, col, 0 : top_bounds[col]] = 0
-                prob_maps[map_ind, col, bottom_bounds[col] :] = 0
-
-            prediction = delineate_boundary(prob_maps[map_ind], graph_structure)
-            predictions[map_ind, :] = prediction
-
-            if eval_params.flatten_pred_edges is True:
-                predictions[map_ind, : eval_params.flat_marg] = predictions[
-                    map_ind, eval_params.flat_marg
-                ]
-                predictions[map_ind, -eval_params.flat_marg :] = predictions[
-                    map_ind, -eval_params.flat_marg
-                ]
-
-            if truths is not None:
-                error = calc_errors(prediction, truths[map_ind, :])
-                errors[map_ind, :] = error
-    else:
-        for map_ind in range(num_maps):
-            prediction = delineate_boundary(prob_maps[map_ind], graph_structure)
-            predictions[map_ind, :] = prediction
-
-            if eval_params.flatten_pred_edges is True:
-                predictions[map_ind, : eval_params.flat_marg] = predictions[
-                    map_ind, eval_params.flat_marg
-                ]
-                predictions[map_ind, -eval_params.flat_marg :] = predictions[
-                    map_ind, -eval_params.flat_marg
-                ]
-
-            if truths is not None:
-                error = calc_errors(prediction, truths[map_ind, :])
-                errors[map_ind, :] = error
-
-    return predictions, errors, prob_maps
+    return (predictions, errors, prob_maps)
 
 
-def calculate_overall_errors(errors, col_error_range):
+def calculate_overall_errors(errors):
     num_boundaries = errors.shape[0]
 
     mean_abs_err = np.zeros((num_boundaries,), dtype="float64")
     mean_err = np.zeros((num_boundaries,), dtype="float64")
     abs_err_sd = np.zeros((num_boundaries,), dtype="float64")
     err_sd = np.zeros((num_boundaries,), dtype="float64")
-
-    errors = errors[:, col_error_range[0] : col_error_range[-1] + 1]
 
     for boundary_ind in range(num_boundaries):
         mean_abs_err[boundary_ind] = np.nanmean(np.abs(errors[boundary_ind]))

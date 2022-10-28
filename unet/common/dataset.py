@@ -2,17 +2,29 @@ from __future__ import annotations
 
 import numpy as np
 from pathlib import Path
+from typeguard import typechecked
 
 
+@typechecked
 class Dataset:
+    """
+    'images' with shape: (number of images, width, height, channels)
+    (dtype = 'uint8')
+
+    'images_masks' with shape: (number of images, width, height, channels)
+    (dtype = 'uint8')
+
+    'images_names' with shape: (number of images,)
+    (dtype = 'S' - fixed length strings)
+    """
     def __init__(
         self,
-        images: np.array,
-        images_masks: np.array,
-        images_names: list[Path],
-        images_output_dirs: list[Path]
+        images: np.ndarray,
+        image_masks: np.ndarray | None,
+        image_names: list[Path],
+        image_output_dirs: list[Path]
     ):
         self.images = images
-        self.images_masks = images_masks
-        self.images_names = images_names
-        self.images_output_dirs = images_output_dirs
+        self.image_masks = image_masks
+        self.image_names = image_names
+        self.image_output_dirs = image_output_dirs

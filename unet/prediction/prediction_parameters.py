@@ -20,15 +20,11 @@ class PredictionSaveParams:
         categorical_pred: bool = False,
         png_images: bool = True,
         boundary_maps: bool = True,
-        individual_raw_boundary_pngs: bool = False,
-        individual_seg_plots: bool = False,
     ) -> None:
         self.predicted_labels = predicted_labels
         self.categorical_pred = categorical_pred
         self.png_images = png_images
         self.boundary_maps = boundary_maps
-        self.individual_raw_boundary_pngs = individual_raw_boundary_pngs
-        self.individual_seg_plots = individual_seg_plots
 
 
 @typechecked

@@ -30,8 +30,6 @@ class PredictionOutput:
         offsets,
         flatten_boundary,
         delineations,
-        errors,
-        trim_maps,
     ) -> None:
         self.image = image
         self.image_name = image_name
@@ -43,15 +41,13 @@ class PredictionOutput:
         self.offsets = offsets
         self.flatten_boundary = flatten_boundary
         self.delineations = delineations
-        self.errors = errors
-        self.trim_maps = trim_maps
 
 
 def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
     dataset = predict_params.dataset
     predict_images = dataset.images
-    predict_image_names = dataset.images_names
-    predict_image_output_dirs = dataset.images_output_dirs
+    predict_image_names = dataset.image_names
+    predict_image_output_dirs = dataset.image_output_dirs
 
     save_predict_config_file(predict_params)
 
@@ -61,8 +57,8 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
     for i, (predict_image, image_name, image_output_dir) in enumerate(
         zip(predict_images, predict_image_names, predict_image_output_dirs)
     ):
-        log.info(f"Inferring image {i}: {image_name}")    
-        start_predict_time = time.time()        
+        log.info(f"Inferring image {i}: {image_name}")
+        start_predict_time = time.time()
         predicted_probs = predict_params.loaded_model.predict(
             np.expand_dims(
                 predict_image / 255, axis=0
@@ -126,11 +122,8 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
         )
 
         start_graph_time = time.time()
-        delineations, errors, trim_maps = graph_search.segment_maps(
-            boundary_maps,
-            None,
-            graph_structure,
-            predict_params,
+        delineations, _, _ = graph_search.segment_maps(
+            boundary_maps, None, graph_structure
         )
 
         reconstructed_maps = datacon.create_area_mask(
@@ -172,7 +165,6 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
             flattened_image,
             flatten_boundary,
             offsets,
-            trim_maps,
             image_output_dir,
         )
 
@@ -187,8 +179,6 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
             offsets=offsets,
             flatten_boundary=flatten_boundary,
             delineations=delineations,
-            errors=errors,
-            trim_maps=trim_maps,
         )
 
         prediction_outputs.append(prediction_output)
@@ -258,17 +248,6 @@ def save_image_prediction_results(
             "boundary_maps", data=boundary_maps, dtype="uint8"
         )
 
-        if (
-            pred_params.save_params.png_images is True
-            and pred_params.save_params.individual_raw_boundary_pngs
-        ):
-            for map_ind in range(len(boundary_maps)):
-                plotting.save_image_plot(
-                    boundary_maps[map_ind],
-                    output_dir / Path("boundary_map_" + map_ind + ".png"),
-                    cmap=cm.Blues,
-                )
-
     hdf5_file.create_dataset("raw_image", data=predict_image, dtype="uint8")
 
     plotting.save_image_plot(
@@ -302,7 +281,6 @@ def save_graph_based_prediction_results(
     flattened_image: np.array,
     flatten_boundary: np.array,
     offsets: np.array,
-    trim_maps: np.array,
     output_dir: Path,
 ):
     num_classes = delineations.shape[0] + 1
@@ -348,22 +326,6 @@ def save_graph_based_prediction_results(
         column_range=predict_params.col_error_range,
     )
 
-    if (
-        predict_params.save_params.individual_seg_plots
-        and predict_params.save_params.png_images
-    ):
-        for i in range(delineations.shape[0]):
-            plotting.save_segmentation_plot(
-                predict_image,
-                cm.gray,
-                output_dir / Path("delin_plot_" + str(i) + ".png"),
-                np.expand_dims(delineations[i], axis=0),
-                predictions=None,
-                column_range=predict_params.col_error_range,
-                color="#ffe100",
-                linewidth=2.0,
-            )
-
     hdf5_file.attrs["model_filename"] = np.array(
         predict_params.model_path, dtype="S1000"
     )
@@ -399,15 +361,5 @@ def save_graph_based_prediction_results(
                 predictions=None,
                 column_range=predict_params.col_error_range,
             )
-
-    if predict_params.trim_maps:
-        hdf5_file.create_dataset("trim_maps", data=trim_maps, dtype="uint8")
-        if predict_params.save_params.png_images:
-            for map_ind in range(len(trim_maps)):
-                plotting.save_image_plot(
-                    trim_maps[map_ind],
-                    output_dir / Path("trim_map_" + {map_ind} + ".png"),
-                    cmap=cm.Blues,
-                )
 
     hdf5_file.close()

@@ -12,14 +12,10 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.utils import to_categorical
 from typeguard import typechecked
 
-from unet.common import utils
+from unet.common import data_generator as data_gen, dataset_loader, utils
 from unet.common.mlflow_parameters import MLflowParameters
-from unet.model import image_database as imdb
-from unet.model import data_generator as data_gen
-from unet.model import dataset_loader
-from unet.model import training_callbacks
-from unet.model import training_parameters as tparams
-from unet.model import unet
+from unet.model import image_database as imdb, unet
+from unet.training import training_callbacks, training_parameters as tparams
 
 
 @typechecked
