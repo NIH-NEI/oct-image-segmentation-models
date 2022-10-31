@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import keras
 import logging as log
 import mlflow
@@ -51,7 +52,6 @@ def load_model(
         loaded_model = tf.keras.models.load_model(
             model_path, custom_objects=custom_objects
         )
-    print(type(loaded_model))
     return loaded_model
 
 
@@ -155,3 +155,11 @@ def convert_predictions_to_maps_semantic(
                 ] = convert_maps_uint8(grad_map)
 
     return boundary_maps
+
+
+@typechecked
+def md5(file_path: Path) -> str:
+    log.info(f"Calculating md5 of file: {file_path}")
+    with open(file_path, "rb") as file_to_check:
+        data = file_to_check.read()
+        return hashlib.md5(data).hexdigest()

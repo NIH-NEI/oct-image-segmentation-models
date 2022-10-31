@@ -168,6 +168,8 @@ def train_model(
         mlflow.set_tracking_uri(mlflow_params.tracking_uri)
         try:
             mlflow.set_experiment(mlflow_params.experiment)
+            mlflow_run = mlflow.start_run()
+            log.info(f"MLFlow Run ID: {mlflow_run.info.run_id}")
         except MlflowException as exc:
             if exc.get_http_status_code() == 401:
                 log.error(
@@ -186,6 +188,14 @@ def train_model(
 
     training_dataset_path = training_params.training_dataset_path
     training_hdf5_file = h5py.File(training_dataset_path, "r")
+
+    mlflow.log_params(
+        {
+            "training_dataset_path": training_dataset_path,
+            "training_dataset_md5": utils.md5(training_dataset_path),
+            "augmentation_mode": training_params.aug_mode,
+        }
+    )
 
     # images numpy array should be of the shape: (number of images, image
     # width, image height, 1) segments numpy array should be of the shape:
@@ -293,8 +303,10 @@ def train_model(
     timestamp = utils.get_timestamp()
 
     results_location = training_params.results_location
-    save_foldername = results_location / Path(
-        timestamp + "_U-net_" + dataset_name
+    save_foldername = (
+        results_location
+        / Path(mlflow_run.info.run_id)
+        / Path(timestamp + "_U-net_" + dataset_name)
     )
 
     if not os.path.exists(save_foldername):
@@ -403,3 +415,4 @@ def train_model(
         verbose=1,
         class_weight=training_params.class_weight,
     )
+    mlflow.end_run()
