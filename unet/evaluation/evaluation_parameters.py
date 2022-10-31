@@ -5,8 +5,6 @@ from typeguard import typechecked
 
 from unet.common import utils
 from unet.common.dataset import Dataset
-from unet.model import custom_losses
-from unet.model import custom_metrics
 
 
 @typechecked
@@ -42,6 +40,7 @@ class EvaluationParameters:
     def __init__(
         self,
         model_path: Path,
+        mlflow_tracking_uri: str | None,
         dataset: Dataset,
         save_foldername: Path,
         save_params: EvaluationSaveParams,
@@ -66,11 +65,8 @@ class EvaluationParameters:
         self.gsgrad = gsgrad
 
         self.save_foldername = save_foldername
-        custom_objects = dict(
-            list(custom_losses.custom_loss_objects.items())
-            + list(custom_metrics.custom_metric_objects.items())
-        )
         self.loaded_model = utils.load_model(
-            model_path, custom_objects=custom_objects
+            model_path,
+            mlflow_tracking_uri=mlflow_tracking_uri,
         )
         self.num_classes = self.loaded_model.output.shape[-1]

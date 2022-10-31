@@ -1,10 +1,17 @@
 import datetime
+import keras
+import logging as log
+import mlflow
+from mlflow.exceptions import MlflowException
 import numpy as np
 from pathlib import Path
-
 import tensorflow as tf
+from typeguard import typechecked
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
+
+from unet.model import custom_losses
+from unet.model import custom_metrics
 
 
 def get_timestamp():
@@ -14,11 +21,38 @@ def get_timestamp():
     return timestamp
 
 
-def load_model(model_path: Path, **kwargs):
-    custom_objects = kwargs.pop("custom_objects", {})
-    return tf.keras.models.load_model(
-        model_path, custom_objects=custom_objects
+@typechecked
+def load_model(
+    model_path: Path, **kwargs
+) -> keras.engine.functional.Functional:
+    custom_objects = dict(
+        list(custom_losses.custom_loss_objects.items())
+        + list(custom_metrics.custom_metric_objects.items())
     )
+    mlflow_tracking_uri = kwargs.pop("mlflow_tracking_uri", {})
+
+    if mlflow_tracking_uri:
+        mlflow.set_tracking_uri(mlflow_tracking_uri)
+        try:
+            loaded_model = mlflow.keras.load_model(
+                str(model_path), custom_objects=custom_objects
+            )
+        except MlflowException as exc:
+            if exc.get_http_status_code() == 401:
+                log.error(
+                    "Looks like the MLFLow client is not authorized to "
+                    "log into the MLFlow server. Make sure the "
+                    " environment variables 'MLFLOW_TRACKING_USERNAME' "
+                    "and 'MLFLOW_TRACKING_PASSWORD' are correct"
+                )
+            log.exception(msg="An error occurred while loading MLflow model")
+            exit(1)
+    else:
+        loaded_model = tf.keras.models.load_model(
+            model_path, custom_objects=custom_objects
+        )
+    print(type(loaded_model))
+    return loaded_model
 
 
 def convert_maps_uint8(prob_maps):

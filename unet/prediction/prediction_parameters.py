@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-import logging as log
-import mlflow
-from mlflow.exceptions import MlflowException
 from pathlib import Path
 from typeguard import typechecked
 
 from unet.common import utils
 from unet.common.dataset import Dataset
-from unet.model import custom_losses
-from unet.model import custom_metrics
 
 
 @typechecked
@@ -50,33 +45,11 @@ class PredictionParams:
         self.mlflow_tracking_uri = mlflow_tracking_uri
         self.dataset = dataset
 
-        custom_objects = dict(
-            list(custom_losses.custom_loss_objects.items())
-            + list(custom_metrics.custom_metric_objects.items())
-        )
         self.mlflow_tracking_uri = mlflow_tracking_uri
-        if self.mlflow_tracking_uri:
-            mlflow.set_tracking_uri(self.mlflow_tracking_uri)
-            try:
-                self.loaded_model = mlflow.keras.load_model(
-                    str(model_path), **{"custom_objects": custom_objects}
-                )
-            except MlflowException as exc:
-                if exc.get_http_status_code() == 401:
-                    log.error(
-                        "Looks like the MLFLow client is not authorized to "
-                        "log into the MLFlow server. Make sure the "
-                        " environment variables 'MLFLOW_TRACKING_USERNAME' "
-                        "and 'MLFLOW_TRACKING_PASSWORD' are correct"
-                    )
-                log.exception(
-                    msg="An error occurred while setting MLflow experiment"
-                )
-                exit(1)
-        else:
-            self.loaded_model = utils.load_model(
-                model_path, **{"custom_objects": custom_objects}
-            )
+        self.loaded_model = utils.load_model(
+            model_path,
+            mlflow_tracking_uri=mlflow_tracking_uri,
+        )
         self.num_classes = self.loaded_model.output.shape[-1]
         self.config_output_dir = config_output_dir
         self.save_params = save_params
