@@ -4,7 +4,6 @@ from pathlib import Path
 from typeguard import typechecked
 
 from unet.common import utils
-from unet.common.dataset import Dataset
 
 
 @typechecked
@@ -41,7 +40,7 @@ class EvaluationParameters:
         self,
         model_path: Path,
         mlflow_tracking_uri: str | None,
-        dataset: Dataset,
+        test_dataset_path: Path,
         save_foldername: Path,
         save_params: EvaluationSaveParams,
         transpose=False,
@@ -52,7 +51,8 @@ class EvaluationParameters:
         bg_csi=False,
     ):
         self.model_path = model_path
-        self.dataset: Dataset = dataset
+        self.mlflow_tracking_uri = mlflow_tracking_uri
+        self.test_dataset_path = test_dataset_path
         self.binarize = binarize
 
         self.save_params = save_params

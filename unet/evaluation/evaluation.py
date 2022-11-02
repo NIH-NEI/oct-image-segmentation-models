@@ -15,6 +15,7 @@ from unet.min_path_processing import utils
 from unet.evaluation.evaluation_parameters import EvaluationParameters
 from unet.common import (
     dataset_construction as datacon,
+    dataset_loader as dl,
     plotting,
     utils as common_utils,
 )
@@ -61,11 +62,18 @@ class EvaluationOutput:
 def evaluate_model(
     eval_params: EvaluationParameters,
 ) -> list[EvaluationOutput]:
-    dataset = eval_params.dataset
-    eval_images = dataset.images
-    eval_labels = dataset.image_masks
-    eval_image_names = dataset.image_names
-    eval_image_output_dirs = dataset.image_output_dirs
+
+    test_dataset_file = h5py.File(eval_params.test_dataset_path, "r")
+
+    eval_images, eval_labels, eval_image_names = dl.load_testing_data(
+        test_dataset_file
+    )
+
+    eval_image_output_dirs = []
+    for i in range(eval_images.shape[0]):
+        eval_image_output_dirs.append(
+            eval_params.save_foldername / Path(f"image_{i}")
+        )
 
     eval_segments = np.swapaxes(
         utils.generate_boundary(np.squeeze(eval_labels, axis=3), axis=2), 0, 1
@@ -84,6 +92,9 @@ def evaluate_model(
         eval_image_name = eval_image_names[ind]
         eval_seg = eval_segments[ind]
         eval_image_output_dir = eval_image_output_dirs[ind]
+
+        if not os.path.exists(eval_image_output_dir):
+            os.makedirs(eval_image_output_dir)
 
         print(
             "Evaluating image number: "
@@ -446,11 +457,19 @@ def _save_graph_based_evaluation_results(
 
 def save_eval_config_file(eval_params: EvaluationParameters):
     config_file = h5py.File(
-        eval_params.save_foldername / Path("config.hdf5"), "w"
+        eval_params.save_foldername / Path("eval_params.hdf5"), "w"
     )
-
     config_file.attrs["model_filename"] = np.array(
-        eval_params.model_path.name, dtype="S100"
+        eval_params.model_path, dtype="S1000"
+    )
+    config_file.attrs["mlflow_tracking_uri"] = np.array(
+        eval_params.mlflow_tracking_uri, dtype="S1000"
+    )
+    config_file.attrs["test_dataset_path"] = np.array(
+        eval_params.test_dataset_path, dtype="S1000"
+    )
+    config_file.attrs["test_dataset_md5"] = np.array(
+        common_utils.md5(eval_params.test_dataset_path), dtype="S1000"
     )
 
     config_file.attrs["gsgrad"] = np.array(eval_params.gsgrad)
