@@ -211,7 +211,7 @@ def train_model(
     log.info(f"Detected {num_classes} classes")
     input_channels = train_images.shape[-1]
     log.info(f"Detected {input_channels} input channels")
-    training_dataset_name = training_params.training_dataset_name
+    training_dataset_name = training_params.training_dataset_path.stem
     train_labels = to_categorical(train_labels, num_classes)
     val_labels = to_categorical(val_labels, num_classes)
 
@@ -227,7 +227,7 @@ def train_model(
     val_imdb = imdb.ImageDatabase(
         images=val_images,
         labels=val_labels,
-        name=training_params.training_dataset_name,
+        name=training_dataset_name,
         filename=training_dataset_path,
         mode_type="fullsize",
         num_classes=num_classes,
@@ -272,6 +272,8 @@ def train_model(
     aug_fly = training_params.aug_fly
     aug_val = training_params.aug_val
     use_gen = training_params.use_gen
+    patience = training_params.patience
+    restore_best_weights = training_params.restore_best_weights
     ram_load = train_imdb.ram_load
 
     if use_gen is False and ram_load == 0:
@@ -343,7 +345,10 @@ def train_model(
 
     if early_stopping:
         early_stopping_callback = tf.keras.callbacks.EarlyStopping(
-            monitor="val_dice_coef", mode="max", patience=5
+            monitor="val_dice_coef",
+            mode="max",
+            patience=patience,
+            restore_best_weights=restore_best_weights,
         )
         callbacks_list.append(early_stopping_callback)
 

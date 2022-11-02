@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 from pathlib import Path
+from typeguard import typechecked
+from typing import Union
 
 from unet.model import augmentation as aug
 
 
+@typechecked
 class TrainingParams:
     """
     Parameters for training a network:
@@ -37,8 +42,7 @@ class TrainingParams:
     def __init__(
         self,
         training_dataset_path: Path,
-        training_dataset_name: str,
-        initial_model: Path,
+        initial_model: Union[Path, None],
         results_location: Path,
         opt_con,
         opt_params,
@@ -59,9 +63,10 @@ class TrainingParams:
         class_weight=None,
         channels_last: bool = True,
         early_stopping: bool = True,
+        restore_best_weights: bool = True,
+        patience: int = 50,
     ):
         self.training_dataset_path = training_dataset_path
-        self.training_dataset_name = training_dataset_name
         self.initial_model = initial_model
         self.results_location = results_location
         self.opt_con = opt_con
@@ -83,6 +88,8 @@ class TrainingParams:
         self.class_weight = class_weight
         self.channels_last = channels_last
         self.early_stopping = early_stopping
+        self.restore_best_weights = restore_best_weights
+        self.patience = patience
 
         if type(loss) is not str:
             self.loss_name = self.loss.__name__
