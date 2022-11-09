@@ -1,3 +1,4 @@
+import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.losses import binary_crossentropy
 
@@ -39,12 +40,13 @@ def focal_loss(target, output, gamma=2):
 
 
 def dice_loss(y_true, y_pred):
+    tf.print(f"y pred :{y_pred.shape}")
     smooth = 1.
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
     intersection = y_true_f * y_pred_f
     score = (2. * K.sum(intersection) + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
-    return 1. - score
+    return score/score * 0.5
 
 
 def bce_dice_loss(y_true, y_pred):

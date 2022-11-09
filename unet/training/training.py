@@ -17,6 +17,7 @@ from unet.common.mlflow_parameters import MLflowParameters
 from unet.model import image_database as imdb, unet
 from unet.training import training_callbacks, training_parameters as tparams
 
+from unet.model.custom_losses import focal_loss
 
 @typechecked
 def save_config_file(
@@ -158,7 +159,7 @@ def train_model(
     mlflow_params: MLflowParameters = None,
 ):
     if mlflow_params:
-        mlflow.keras.autolog(save_format="h5")
+        mlflow.keras.autolog()
         if mlflow_params.username:
             os.environ["MLFLOW_TRACKING_USERNAME"] = mlflow_params.username
 
@@ -256,14 +257,14 @@ def train_model(
             model = unet.unet(
                 8,
                 4,
-                2,
+                3,
                 (3, 3),
                 (2, 2),
                 input_channels=input_channels,
                 output_channels=num_classes,
             )
 
-            model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
+            model.compile(optimizer=optimizer, loss=loss, metrics=[metric], run_eagerly=True, sample_weight_mode="temporal")
 
     batch_size = training_params.batch_size
     aug_fn_args = training_params.aug_fn_args
@@ -418,6 +419,5 @@ def train_model(
         epochs=epochs,
         callbacks=callbacks_list,
         verbose=1,
-        class_weight=training_params.class_weight,
     )
     mlflow.end_run()

@@ -1,5 +1,6 @@
 import logging as log
 import numpy as np
+import tensorflow
 from tensorflow import keras
 from math import floor
 
@@ -353,8 +354,10 @@ class DataGenerator(keras.utils.Sequence):
 
     def __getitem__(self, index):
         """Generate one batch of data"""
+        # Use with batch_size = 4
+        weight = tensorflow.convert_to_tensor([[1.0, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]])
         X, y = self.__data_generation()
-        return X, y
+        return X, y, weight
 
     def on_epoch_end(self):
         """Runs when a training epoch ends"""

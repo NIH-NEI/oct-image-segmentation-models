@@ -7,6 +7,7 @@ from tensorflow.keras.layers import (
     Input,
     MaxPooling2D,
     UpSampling2D,
+    Reshape,
 )
 from tensorflow.keras.models import Model
 
@@ -103,5 +104,7 @@ def unet(
         strides=(1, 1),
         activation="softmax",
     )(x)
+
+    o = Reshape((352*384, 7))(o)
 
     return Model(inputs=inp, outputs=o)
