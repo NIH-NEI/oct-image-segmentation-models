@@ -15,8 +15,15 @@ def get_version():
     version = match.groups()[0]
     return version
 
+
 def get_install_requires():
-    return ["matplotlib", "mlflow", "tensorflow==2.9.1", "typeguard"]
+    return [
+        "focal-loss",
+        "matplotlib",
+        "mlflow",
+        "tensorflow==2.9.1",
+        "typeguard",
+    ]
 
 
 def get_long_description():
@@ -44,12 +51,13 @@ def main():
             "Intended Audience :: Researchers",
             "Natural Language :: English",
             "Programming Language :: Python",
-            "Programming Language :: Python :: 3.8",
+            "Programming Language :: Python :: 3.10",
         ],
         package_data={},
         entry_points={},
         data_files=[],
     )
+
 
 if __name__ == "__main__":
     main()

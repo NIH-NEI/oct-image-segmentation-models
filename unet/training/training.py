@@ -14,7 +14,12 @@ from typeguard import typechecked
 
 from unet.common import data_generator as data_gen, dataset_loader, utils
 from unet.common.mlflow_parameters import MLflowParameters
-from unet.model import image_database as imdb, unet
+from unet.model import (
+    custom_losses,
+    custom_metrics,
+    image_database as imdb,
+    unet,
+)
 from unet.training import training_callbacks, training_parameters as tparams
 
 
@@ -70,10 +75,8 @@ def save_config_file(
                 ] = dim_ind
             dim_count += 1
 
-    config_file.attrs["metric"] = np.array(
-        train_params.metric_name, dtype="S100"
-    )
-    config_file.attrs["loss"] = np.array(train_params.loss_name, dtype="S100")
+    config_file.attrs["metric"] = np.array(train_params.metric, dtype="S100")
+    config_file.attrs["loss"] = np.array(train_params.loss, dtype="S100")
     config_file.attrs["batch_size"] = train_params.batch_size
     config_file.attrs["shuffle"] = train_params.shuffle
     if train_imdb.padding is not None:
@@ -194,6 +197,8 @@ def train_model(
             "training_dataset_path": training_dataset_path,
             "training_dataset_md5": utils.md5(training_dataset_path),
             "augmentation_mode": training_params.aug_mode,
+            "loss_name": training_params.loss,
+            "metric_name": training_params.metric,
         }
     )
 
@@ -212,8 +217,33 @@ def train_model(
     input_channels = train_images.shape[-1]
     log.info(f"Detected {input_channels} input channels")
     training_dataset_name = training_params.training_dataset_path.stem
-    train_labels = to_categorical(train_labels, num_classes)
-    val_labels = to_categorical(val_labels, num_classes)
+
+    strategy = tf.distribute.MirroredStrategy()
+    log.info(f"Number of devices: {strategy.num_replicas_in_sync}")
+
+    optimizer_con = training_params.opt_con
+    optimizer_params = training_params.opt_params
+
+    optimizer = optimizer_con(**optimizer_params)
+
+    loss = custom_losses.custom_loss_objects.get(training_params.loss)
+    if loss is None:
+        log.error(f"Loss '{training_params.loss}' not found. Exiting...")
+        exit(1)
+    else:
+        loss_fn = loss["function"]()
+        sparse_labels = loss["takes_sparse"]
+
+    metric = custom_metrics.custom_metric_objects.get(training_params.metric)
+    if metric is None:
+        log.error(f"Metric '{training_params.metric}' not found. Exiting...")
+        exit(1)
+    else:
+        metric_fn = metric(sparse_labels, num_classes)
+
+    if not sparse_labels:
+        train_labels = to_categorical(train_labels, num_classes)
+        val_labels = to_categorical(val_labels, num_classes)
 
     train_imdb = imdb.ImageDatabase(
         images=train_images,
@@ -233,16 +263,6 @@ def train_model(
         num_classes=num_classes,
     )
 
-    strategy = tf.distribute.MirroredStrategy()
-    log.info(f"Number of devices: {strategy.num_replicas_in_sync}")
-
-    optimizer_con = training_params.opt_con
-    optimizer_params = training_params.opt_params
-
-    optimizer = optimizer_con(**optimizer_params)
-
-    loss = training_params.loss
-    metric = training_params.metric
     epochs = training_params.epochs
     initial_model_path = training_params.initial_model
     early_stopping = training_params.early_stopping
@@ -263,7 +283,9 @@ def train_model(
                 output_channels=num_classes,
             )
 
-            model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
+            model.compile(
+                optimizer=optimizer, loss=loss_fn, metrics=[metric_fn]
+            )
 
     batch_size = training_params.batch_size
     aug_fn_args = training_params.aug_fn_args
@@ -418,6 +440,5 @@ def train_model(
         epochs=epochs,
         callbacks=callbacks_list,
         verbose=1,
-        class_weight=training_params.class_weight,
     )
     mlflow.end_run()

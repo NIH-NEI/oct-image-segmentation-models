@@ -46,10 +46,10 @@ class TrainingParams:
         results_location: Path,
         opt_con,
         opt_params,
-        loss,
-        metric,
-        epochs,
-        batch_size,
+        loss: str,
+        metric: str,
+        epochs: int,
+        batch_size: int,
         aug_fn_args=((aug.no_aug, {}),),
         aug_mode="none",
         aug_probs=(),
@@ -91,18 +91,8 @@ class TrainingParams:
         self.restore_best_weights = restore_best_weights
         self.patience = patience
 
-        if type(loss) is not str:
-            self.loss_name = self.loss.__name__
-        else:
-            self.loss_name = self.loss
-
-        if type(metric) is not str:
-            self.metric_name = self.metric.__name__
-        else:
-            self.metric_name = self.metric
-
         if self.model_save_monitor[0] == "val_acc":
             self.model_save_monitor = [
-                "val_" + self.metric_name,
+                "val_" + self.metric,
                 model_save_monitor[1],
             ]

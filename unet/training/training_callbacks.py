@@ -2,10 +2,12 @@ import os
 import time
 
 import h5py
-from tensorflow import keras
 from pathlib import Path
+from tensorflow import keras
+from typeguard import typechecked
 
 
+@typechecked
 class SaveEpochInfo(keras.callbacks.Callback):
     def __init__(
         self,
@@ -24,16 +26,8 @@ class SaveEpochInfo(keras.callbacks.Callback):
         self.f = None
         self.ax1 = None
         self.ax2 = None
-        if type(train_params.metric) is not str:
-            self.acc_name = train_params.metric.__name__
-        else:
-            self.acc_name = train_params.metric
-
-        if type(train_params.loss) is not str:
-            self.loss_name = train_params.loss.__name__
-        else:
-            self.loss_name = train_params.loss
-
+        self.acc_name = train_params.metric
+        self.loss_name = train_params.loss
         self.save_folder = save_folder
         self.plotpath = save_folder / Path("performance_plot.png")
         self.num_epochs = train_params.epochs
