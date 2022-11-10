@@ -21,6 +21,7 @@ def get_install_requires():
         "focal-loss",
         "matplotlib",
         "mlflow",
+        "scikit-learn",
         "tensorflow==2.9.1",
         "typeguard",
     ]

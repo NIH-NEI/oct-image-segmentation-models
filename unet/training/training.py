@@ -7,10 +7,12 @@ import mlflow
 from mlflow.exceptions import MlflowException
 import numpy as np
 from pathlib import Path
+from sklearn.utils import class_weight
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.utils import to_categorical
 from typeguard import typechecked
+from typing import Union
 
 from unet.common import data_generator as data_gen, dataset_loader, utils
 from unet.common.mlflow_parameters import MLflowParameters
@@ -24,26 +26,42 @@ from unet.training import training_callbacks, training_parameters as tparams
 
 
 @typechecked
-def save_config_file(
+def save_training_params_file(
     save_foldername: Path,
     model_summary: str,
+    training_dataset_md5: str,
+    class_weight: Union[np.ndarray, None],
     timestamp,
     train_params,
     train_imdb,
     val_imdb,
     opt,
 ):
-    config_filename = save_foldername / Path("config.hdf5")
+    config_filename = save_foldername / Path("training_params.hdf5")
 
     config_file = h5py.File(config_filename, "w")
 
     config_file.attrs["timestamp"] = np.array(timestamp, dtype="S100")
     config_file.attrs["model_summary"] = np.array(model_summary, dtype="S1000")
+    config_file.attrs["train_dataset_md5"] = np.array(
+        training_dataset_md5, dtype="S1000"
+    )
     config_file.attrs["train_imdb"] = np.array(
         train_imdb.filename, dtype="S100"
     )
     config_file.attrs["val_imdb"] = np.array(val_imdb.filename, dtype="S100")
     config_file.attrs["epochs"] = train_params.epochs
+    config_file.attrs["loss_name"] = np.array(train_params.loss, dtype="S1000")
+    config_file.attrs["metric_name"] = np.array(
+        train_params.metric, dtype="S1000"
+    )
+
+    if class_weight is None:
+        config_file.attrs["class_weight"] = np.array("None", dtype="S1000")
+    else:
+        config_file.attrs["class_weight"] = np.array("array", dtype="S1000")
+        config_file["class_weight"] = class_weight
+
     config_file.attrs["dim_names"] = np.array(
         train_imdb.dim_names, dtype="S100"
     )
@@ -192,16 +210,6 @@ def train_model(
     training_dataset_path = training_params.training_dataset_path
     training_hdf5_file = h5py.File(training_dataset_path, "r")
 
-    mlflow.log_params(
-        {
-            "training_dataset_path": training_dataset_path,
-            "training_dataset_md5": utils.md5(training_dataset_path),
-            "augmentation_mode": training_params.aug_mode,
-            "loss_name": training_params.loss,
-            "metric_name": training_params.metric,
-        }
-    )
-
     # images numpy array should be of the shape: (number of images, image
     # width, image height, 1) segments numpy array should be of the shape:
     # (number of images, number of boundaries, image width)
@@ -231,7 +239,18 @@ def train_model(
         log.error(f"Loss '{training_params.loss}' not found. Exiting...")
         exit(1)
     else:
-        loss_fn = loss["function"]()
+        if training_params.class_weight == "balanced":
+            dataset_labels = np.concatenate((train_labels, val_labels))
+            c_weight = class_weight.compute_class_weight(
+                "balanced",
+                classes=np.unique(dataset_labels),
+                y=dataset_labels.flatten(),
+            )
+        elif type(training_params.class_weight) == list:
+            c_weight = np.array(training_params.class_weight)
+        else:
+            c_weight = None
+        loss_fn = loss["function"](class_weight=c_weight)
         sparse_labels = loss["takes_sparse"]
 
     metric = custom_metrics.custom_metric_objects.get(training_params.metric)
@@ -244,6 +263,19 @@ def train_model(
     if not sparse_labels:
         train_labels = to_categorical(train_labels, num_classes)
         val_labels = to_categorical(val_labels, num_classes)
+
+    training_dataset_md5 = utils.md5(training_dataset_path)
+    mlflow.log_params(
+        {
+            "training_dataset_path": training_dataset_path,
+            "training_dataset_md5": training_dataset_md5,
+            "augmentation_mode": training_params.aug_mode,
+            "loss_name": training_params.loss,
+            "metric_name": training_params.metric,
+            "loss_fn_class_weight": training_params.class_weight,
+            "class_weight_array": c_weight,
+        }
+    )
 
     train_imdb = imdb.ImageDatabase(
         images=train_images,
@@ -376,9 +408,11 @@ def train_model(
 
     model_summary = []
     model.summary(print_fn=lambda line: model_summary.append(line))
-    save_config_file(
+    save_training_params_file(
         save_foldername,
         "\n".join(model_summary),
+        training_dataset_md5,
+        c_weight,
         timestamp,
         training_params,
         train_imdb,

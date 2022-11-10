@@ -1,6 +1,9 @@
 import focal_loss as fl
+import numpy as np
 from tensorflow.keras import backend as K
 from tensorflow.keras.losses import binary_crossentropy
+from typeguard import typechecked
+from typing import Union
 
 
 def weighted_categorical_crossentropy(weights):
@@ -32,13 +35,14 @@ def weighted_categorical_crossentropy(weights):
     return loss
 
 
-def focal_loss(gamma=2, class_weight=None):
+@typechecked
+def focal_loss(gamma=2, class_weight: Union[np.ndarray, None] = None):
     return fl.SparseCategoricalFocalLoss(
         gamma=gamma, class_weight=class_weight
     )
 
 
-def dice_loss():
+def dice_loss(**kwargs):
     return _dice_loss
 
 

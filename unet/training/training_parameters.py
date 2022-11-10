@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pathlib import Path
 from typeguard import typechecked
 from typing import Union
@@ -60,7 +58,7 @@ class TrainingParams:
         model_save_monitor=("val_acc", "max"),
         normalise=True,
         use_gen=True,
-        class_weight=None,
+        class_weight: Union[list, str, None] = None,
         channels_last: bool = True,
         early_stopping: bool = True,
         restore_best_weights: bool = True,
