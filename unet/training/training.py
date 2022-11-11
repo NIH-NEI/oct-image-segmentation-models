@@ -250,8 +250,10 @@ def train_model(
             c_weight = np.array(training_params.class_weight)
         else:
             c_weight = None
-        loss_fn = loss["function"](class_weight=c_weight)
         sparse_labels = loss["takes_sparse"]
+        loss_fn = loss["function"](
+            num_classes=num_classes, is_y_true_sparse=sparse_labels
+        )
 
     metric = custom_metrics.custom_metric_objects.get(training_params.metric)
     if metric is None:
@@ -316,7 +318,9 @@ def train_model(
             )
 
             model.compile(
-                optimizer=optimizer, loss=loss_fn, metrics=[metric_fn]
+                optimizer=optimizer,
+                loss=loss_fn,
+                metrics=[metric_fn],
             )
 
     batch_size = training_params.batch_size

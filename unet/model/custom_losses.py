@@ -1,9 +1,10 @@
 import focal_loss as fl
 import numpy as np
+import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.losses import binary_crossentropy
 from typeguard import typechecked
-from typing import Union
+from typing import Any, Optional, Union
 
 
 def weighted_categorical_crossentropy(weights):
@@ -36,37 +37,114 @@ def weighted_categorical_crossentropy(weights):
 
 
 @typechecked
-def focal_loss(gamma=2, class_weight: Union[np.ndarray, None] = None):
+def focal_loss(
+    gamma: float = 2, class_weight: Union[np.ndarray, None] = None, **kwargs
+):
     return fl.SparseCategoricalFocalLoss(
         gamma=gamma, class_weight=class_weight
     )
 
 
-def dice_loss(**kwargs):
+@typechecked
+def dice_loss(*, is_y_true_sparse: bool, num_classes: int, **kwargs):
+    def _dice_loss(y_true, y_pred):
+        smooth = 1.0
+        if is_y_true_sparse:
+            y_true = tf.one_hot(tf.cast(y_true, dtype=tf.int32), num_classes)
+        y_true_f = K.flatten(y_true)
+        y_pred_f = K.flatten(y_pred)
+        intersection = y_true_f * y_pred_f
+        score = (2.0 * K.sum(intersection) + smooth) / (
+            K.sum(y_true_f) + K.sum(y_pred_f) + smooth
+        )
+        return 1.0 - score
+
     return _dice_loss
 
 
-def _dice_loss(y_true, y_pred):
-    smooth = 1.0
-    y_true_f = K.flatten(y_true)
-    y_pred_f = K.flatten(y_pred)
-    intersection = y_true_f * y_pred_f
-    score = (2.0 * K.sum(intersection) + smooth) / (
-        K.sum(y_true_f) + K.sum(y_pred_f) + smooth
-    )
-    return 1.0 - score
+@typechecked
+def bce_dice_loss(*, num_classes: int, **kwargs):
+    dice_loss_fn = dice_loss(is_y_true_sparse=False, num_classes=num_classes)
 
+    def _bce_dice_loss(y_true, y_pred):
+        return binary_crossentropy(y_true, y_pred) + dice_loss_fn(
+            y_true, y_pred
+        )
 
-def bce_dice_loss(y_true, y_pred):
-    return binary_crossentropy(y_true, y_pred) + _dice_loss(y_true, y_pred)
+    return _bce_dice_loss
 
 
 def bce_focal_loss(y_true, y_pred):
     return binary_crossentropy(y_true, y_pred) + focal_loss(y_true, y_pred)
 
 
-def focal_dice_loss(y_true, y_pred):
-    return dice_loss(y_true, y_pred) + focal_loss(y_true, y_pred)
+@typechecked
+@tf.keras.utils.register_keras_serializable()
+class SparseCategoricalFocalDiceLoss(fl.SparseCategoricalFocalLoss):
+    def __init__(
+        self,
+        num_classes: int,
+        focal_loss_weight: float,
+        gamma,
+        class_weight: Optional[Any] = None,
+        from_logits: bool = False,
+        **kwargs,
+    ):
+        super().__init__(gamma, class_weight, from_logits, **kwargs)
+        self.num_classes = num_classes
+        self.focal_loss_weight = focal_loss_weight
+        self.dice_loss_fn = dice_loss(
+            is_y_true_sparse=True,
+            num_classes=num_classes,
+        )
+
+    def get_config(self):
+        """Returns the config of the layer.
+
+        A layer config is a Python dictionary containing the configuration of a
+        layer. The same layer can be re-instantiated later (without its trained
+        weights) from this configuration.
+
+        Returns
+        -------
+        dict
+            This layer's config.
+        """
+        config = super().get_config()
+        config.update(
+            num_classes=self.num_classes,
+            focal_weight=self.focal_loss_weight,
+            dice_loss_fn=self.dice_loss_fn,
+        )
+        return config
+
+    def call(self, y_true, y_pred):
+        focal_loss = super().call(y_true, y_pred)
+        # The focal loss is averaged accros the local batch.
+        # Keras will handle the division by the number of replicas
+        focal_loss = K.sum(focal_loss) / tf.cast(
+            tf.size(y_true), dtype=tf.float32
+        )
+        dice_loss = self.dice_loss_fn(y_true, y_pred)
+
+        return (
+            self.focal_loss_weight * focal_loss
+            + (1 - self.focal_loss_weight) * dice_loss
+        )
+
+
+@typechecked
+def focal_dice_loss(
+    *,
+    num_classes: int,
+    gamma: float = 2,
+    class_weight: Union[np.ndarray, None] = None,
+    focal_loss_weight: float = 0.5,
+    **kwargs,
+):
+    return SparseCategoricalFocalDiceLoss(
+        num_classes, focal_loss_weight, gamma=gamma, class_weight=class_weight
+    )
 
 
 def bce_logdice_loss(y_true, y_pred):
@@ -139,6 +217,6 @@ custom_loss_objects = {
     },
     "focal_dice_loss": {
         "function": focal_dice_loss,
-        "takes_sparse": False,
+        "takes_sparse": True,
     },
 }
