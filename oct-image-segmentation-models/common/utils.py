@@ -11,8 +11,8 @@ from typeguard import typechecked
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
 
-from unet.model import custom_losses
-from unet.model import custom_metrics
+from oct_image_segmentation_models.common import custom_losses
+from oct_image_segmentation_models.common import custom_metrics
 
 
 def get_timestamp():

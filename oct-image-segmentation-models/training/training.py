@@ -14,15 +14,22 @@ from tensorflow.keras.utils import to_categorical
 from typeguard import typechecked
 from typing import Union
 
-from unet.common import data_generator as data_gen, dataset_loader, utils
-from unet.common.mlflow_parameters import MLflowParameters
-from unet.model import (
+from oct_image_segmentation_models.common import (
     custom_losses,
     custom_metrics,
+    data_generator as data_gen,
+    dataset_loader,
     image_database as imdb,
-    unet,
+    utils,
 )
-from unet.training import training_callbacks, training_parameters as tparams
+from oct_image_segmentation_models.common.mlflow_parameters import (
+    MLflowParameters,
+)
+from oct_image_segmentation_models.models import unet
+from oct_image_segmentation_models.training import (
+    training_callbacks,
+    training_parameters as tparams,
+)
 
 
 @typechecked

@@ -11,15 +11,17 @@ from typeguard import typechecked
 from tensorflow.keras.utils import to_categorical
 import time
 
-from unet.min_path_processing import utils
-from unet.evaluation.evaluation_parameters import EvaluationParameters
-from unet.common import (
+from oct_image_segmentation_models.min_path_processing import utils
+from oct_image_segmentation_models.evaluation.evaluation_parameters import (
+    EvaluationParameters,
+)
+from oct_image_segmentation_models.common import (
     dataset_construction as datacon,
     dataset_loader as dl,
     plotting,
     utils as common_utils,
 )
-from unet.min_path_processing import graph_search
+from oct_image_segmentation_models.min_path_processing import graph_search
 
 EVALUATION_RESULTS_FILENAME = "evaluation_results.hdf5"
 GS_EVALUATION_RESULTS_FILENAME = "gs_evaluation_results.hdf5"

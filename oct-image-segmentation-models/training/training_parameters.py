@@ -2,7 +2,7 @@ from pathlib import Path
 from typeguard import typechecked
 from typing import Union
 
-from unet.model import augmentation as aug
+from oct_image_segmentation_models.common import augmentation as aug
 
 
 @typechecked

@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typeguard import typechecked
 
-from unet.common import utils
-from unet.common.dataset import Dataset
+from oct_image_segmentation_models.common import utils
+from oct_image_segmentation_models.common.dataset import Dataset
 
 
 @typechecked

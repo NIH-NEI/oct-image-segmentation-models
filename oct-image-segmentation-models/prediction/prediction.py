@@ -11,9 +11,15 @@ from typeguard import typechecked
 
 from tensorflow.keras.utils import to_categorical
 
-from unet.common import dataset_construction as datacon, plotting, utils
-from unet.min_path_processing import graph_search
-from unet.prediction.prediction_parameters import PredictionParams
+from oct_image_segmentation_models.common import (
+    dataset_construction as datacon,
+    plotting,
+    utils,
+)
+from oct_image_segmentation_models.min_path_processing import graph_search
+from oct_image_segmentation_models.prediction.prediction_parameters import (
+    PredictionParams,
+)
 
 
 @typechecked

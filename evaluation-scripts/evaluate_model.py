@@ -1,19 +1,25 @@
 import sys
 
 from pathlib import Path
+
 file = Path(__file__).resolve()
 package_root_directory = file.parents[1]
 sys.path.append(str(package_root_directory))
 
-from unet.model import augmentation as aug
-from unet.model import evaluation
-from unet.model import evaluation_parameters as eparams
-from unet.model import save_parameters
+from oct_image_segmentation_models.common import augmentation as aug
+from oct_image_segmentation_models import evaluation
+from oct_image_segmentation_models.model import (
+    evaluation_parameters as eparams,
+)
+from oct_image_segmentation_models.model import save_parameters
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Usage: python3 evaluate_model.py <path/to/model/file> </path/to/test/dataset/file> </output/dir/path>")
+        print(
+            "Usage: python3 evaluate_model.py <path/to/model/file> "
+            "</path/to/test/dataset/file> </output/dir/path>"
+        )
         exit(1)
 
     model_file_path = Path(sys.argv[1])
@@ -28,7 +34,7 @@ if __name__ == "__main__":
         boundary_maps=True,
         area_maps=True,
         comb_area_maps=True,
-        seg_plot=True
+        seg_plot=True,
     )
 
     eval_params = eparams.EvaluationParameters(
