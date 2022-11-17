@@ -1,6 +1,5 @@
 import numpy as np
 import time
-from tensorflow.keras import backend as K
 
 
 def augment_dataset(images, masks, segs, aug_fn_arg):
@@ -18,18 +17,31 @@ def augment_dataset(images, masks, segs, aug_fn_arg):
         image = images[i, :, :]
         mask = masks[i, :, :]
         seg = segs[i, :, :]
-        augmented_images[i, :, :], augmented_masks[i, :, :], augmented_segs[i, :, :], _, _ \
-            = aug_fn(image, mask, seg, aug_arg)
+        (
+            augmented_images[i, :, :],
+            augmented_masks[i, :, :],
+            augmented_segs[i, :, :],
+            _,
+            _,
+        ) = aug_fn(image, mask, seg, aug_arg)
 
     aug_desc = aug_fn(None, None, None, aug_arg, True)
 
     end_augment_time = time.time()
     total_aug_time = end_augment_time - start_augment_time
 
-    return [augmented_images, augmented_masks, augmented_segs, aug_desc, total_aug_time]
+    return [
+        augmented_images,
+        augmented_masks,
+        augmented_segs,
+        aug_desc,
+        total_aug_time,
+    ]
 
 
-def no_aug(image, mask, seg, aug_args, desc_only=False, sample_ind=None, set=None):
+def no_aug(
+    image, mask, seg, aug_args, desc_only=False, sample_ind=None, set=None
+):
     desc = "no aug"
     if desc_only is False:
         return image, mask, seg, desc, 0
@@ -40,11 +52,11 @@ def no_aug(image, mask, seg, aug_args, desc_only=False, sample_ind=None, set=Non
 def flip_aug(image, mask, aug_args, desc_only=False, sample_ind=None):
     start_augment_time = time.time()
 
-    flip_type = aug_args['flip_type']
+    flip_type = aug_args["flip_type"]
 
-    if flip_type == 'up-down':
+    if flip_type == "up-down":
         axis = 1
-    elif flip_type == 'left-right':
+    elif flip_type == "left-right":
         axis = 0
 
     aug_desc = "flip aug: " + flip_type

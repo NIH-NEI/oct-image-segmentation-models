@@ -50,7 +50,8 @@ class BatchGenerator:
         start as well as at the end of each epoch
         _________
 
-        """
+    """
+
     def __init__(
         self,
         images: np.ndarray,
@@ -63,10 +64,16 @@ class BatchGenerator:
     ):
         self.images = images
         self.labels = labels
-        self.batch_counter = 0              # number of batches generated in the current epoch
-        self.batch_size = batch_size        # number of samples in a batch
-        self.full_counter = 0               # used to track which full size image we are up to
-        self.aug_counter = 0                # used to track which augmentation index we are up to (for aug_mode='all')
+        self.batch_counter = (
+            0  # number of batches generated in the current epoch
+        )
+        self.batch_size = batch_size  # number of samples in a batch
+        self.full_counter = (
+            0  # used to track which full size image we are up to
+        )
+
+        self.aug_counter = 0  # used to track which augmentation index we are
+        # up to (for aug_mode='all')
 
         self.aug_fn_args = aug_fn_args
         self.aug_mode = aug_mode
@@ -75,21 +82,25 @@ class BatchGenerator:
 
         self.total_full_images = self.images.shape[0]
 
-        self.total_raw_samples = self.total_full_images        # total raw samples (w/out augs)
+        self.total_raw_samples = (
+            self.total_full_images
+        )  # total raw samples (w/out augs)
 
         self.image_height = self.images.shape[1]
         self.image_width = self.images.shape[2]
         self.num_channels = self.images.shape[3]
         self.labels_shape = self.labels.shape
 
-        if self.aug_mode == 'none':
+        if self.aug_mode == "none":
             self.total_samples = self.total_raw_samples
             self.total_augs = 0
-        elif self.aug_mode == 'all':
+        elif self.aug_mode == "all":
             # want to combine all augmentations
             self.total_augs = len(self.aug_fn_args)
-            self.total_samples = self.total_raw_samples * self.total_augs   # total samples (including augmentations)
-        elif self.aug_mode == 'one':
+            self.total_samples = (
+                self.total_raw_samples * self.total_augs
+            )  # total samples (including augmentations)
+        elif self.aug_mode == "one":
             self.total_augs = len(self.aug_fn_args)
             self.total_samples = self.total_raw_samples
         else:
@@ -105,39 +116,49 @@ class BatchGenerator:
         self.batch_labels_shape[0] = self.batch_size
         self.batch_labels_shape = tuple(self.batch_labels_shape)
 
-        if self.aug_fly is False and self.aug_mode != 'none':
+        if self.aug_fly is False and self.aug_mode != "none":
             # don't augment on the fly so generate samples now
             self.aug_images, self.aug_labels = self.setup_augnofly_data()
 
         self.sample_shuffle = np.arange(self.total_full_images)
 
-        self.num_batches = int(floor(1.0 * self.total_samples / self.batch_size))
+        self.num_batches = int(
+            floor(1.0 * self.total_samples / self.batch_size)
+        )
         self.handle_epoch_end()
 
     def setup_augnofly_data(self):
         """Setup augmented data to be used when aug_fly=False.
-            _________
+        _________
 
-            Returns:
+        Returns:
 
-            (1) array of images is created with
-            shape: (total full images, total number of augs, image width, image height, num_channels).
+        (1) array of images is created with
+        shape: (total full images, total number of augs,
+        image height, image width, num_channels).
 
-            (2) array of labels is created with
-            shape: (total full images, total number of augs, image width, image height, num_channels). (semantic)
-            or
-            shape: (total full images, total number of augs).
-            _________
-            """
+        (2) array of labels is created with
+        shape: (total full images, total number of augs, image height,
+        image width, num_channels).
+        _________
+        """
 
         aug_labels_shape = list(self.labels_shape)
         aug_labels_shape[0] = self.total_full_images
         aug_labels_shape.insert(1, self.total_augs)
         aug_labels_shape = tuple(aug_labels_shape)
 
-        aug_images = np.zeros((self.total_full_images, self.total_augs, self.image_height,
-                               self.image_width, self.num_channels), dtype='uint8')
-        aug_labels = np.zeros(aug_labels_shape, dtype='uint8')
+        aug_images = np.zeros(
+            (
+                self.total_full_images,
+                self.total_augs,
+                self.image_height,
+                self.image_width,
+                self.num_channels,
+            ),
+            dtype="uint8",
+        )
+        aug_labels = np.zeros(aug_labels_shape, dtype="uint8")
 
         for i in range(self.total_full_images):
             for j in range(self.total_augs):
@@ -145,71 +166,85 @@ class BatchGenerator:
                 aug_arg = self.aug_fn_args[j][1]
                 image = self.images[i]
                 label = self.labels[i]
-                aug_images[i, j], aug_labels[i, j], _, _ = aug_fn(image, label, None, aug_arg, sample_ind=i)
+                aug_images[i, j], aug_labels[i, j], _, _ = aug_fn(
+                    image, label, None, aug_arg, sample_ind=i
+                )
 
         return aug_images, aug_labels
 
     def get_aug_fly(self, sample_ind):
         """Get next sample where augmentation needs to be generated on the fly.
-            _________
+        _________
 
-            Returns:
+        Returns:
 
-            aug_image: next sample. shape: (image width, image height)
+        aug_image: next sample. shape: (image height, image width)
 
-            aug_label: next label. shape: (image width, image height) (semantic) or shape: (1,) (patch based)
-            _________
-            """
+        aug_label: next label. shape: (image height, image width)
+        _________
+        """
         raw_image = self.images[sample_ind]
         raw_label = self.labels[sample_ind]
 
-        if self.aug_mode == 'all':
-            # perform each augmentation (current augmentation indicated by aug_ind)
+        if self.aug_mode == "all":
+            # perform each augmentation (current augmentation indicated by
+            # aug_ind)
             aug_fn_arg = self.aug_fn_args[self.aug_counter]
 
             aug_fn = aug_fn_arg[0]
             aug_arg = aug_fn_arg[1]
-            aug_image, aug_label, _, _ = aug_fn(raw_image, raw_label, aug_arg, sample_ind=sample_ind)  # apply augmentation
+            aug_image, aug_label, _, _ = aug_fn(
+                raw_image, raw_label, aug_arg, sample_ind=sample_ind
+            )  # apply augmentation
 
-            self.aug_counter += 1  # move to the next augmentation ready for next time
+            self.aug_counter += (
+                1  # move to the next augmentation ready for next time
+            )
             if self.aug_counter == self.total_augs:
-                self.aug_counter = 0  # reset the aug_ind, we are done with them all for this particular image
-                self.full_counter += 1  # move to the next full image as we have no more augs to do for the current
-        elif self.aug_mode == 'one':
+                self.aug_counter = 0  # reset the aug_ind, we are done with
+                # them all for this particular image
+                self.full_counter += 1  # move to the next full image as we
+                # have no more augs to do for the current
+        elif self.aug_mode == "one":
             # choose single augmentation for replacement based on probabilities
-            aug_fn_arg_ind = np.random.choice(np.arange(self.total_augs), p=self.aug_probs)
+            aug_fn_arg_ind = np.random.choice(
+                np.arange(self.total_augs), p=self.aug_probs
+            )
 
             aug_fn_arg = self.aug_fn_args[aug_fn_arg_ind]
 
             aug_fn = aug_fn_arg[0]
             aug_arg = aug_fn_arg[1]
 
-            aug_image, aug_label, _, _ = aug_fn(raw_image, raw_label, aug_arg, sample_ind=sample_ind)  # apply augmentation
+            aug_image, aug_label, _, _ = aug_fn(
+                raw_image, raw_label, aug_arg, sample_ind=sample_ind
+            )  # apply augmentation
 
-            self.full_counter += 1  # just the single random augmentation so move to the next raw image
+            self.full_counter += 1  # just the single random augmentation so
+            # move to the next raw image
         else:
             # no augmentation: just use the raw image and label as is
             aug_image = raw_image
             aug_label = raw_label
-            self.full_counter += 1   # move to the next image
+            self.full_counter += 1  # move to the next image
 
         return aug_image, aug_label
 
     def get_aug_nofly(self, sample_ind):
         """Get next sample from pre-constructed augmentation data.
-            _________
+        _________
 
-            Returns:
+        Returns:
 
-            aug_image: next sample. shape: (image width, image height)
+        aug_image: next sample. shape: (image height, image width)
 
-            aug_label: next label. shape: (image width, image height) (semantic) or shape: (1,) (patch based)
-            _________
-            """
+        aug_label: next label. shape: (image height, image width)
+        _________
+        """
         raw_image = self.images[sample_ind]
         raw_label = self.labels[sample_ind]
 
-        if self.aug_mode == 'all':
+        if self.aug_mode == "all":
             # all augmentations are used
             aug_image = self.aug_images[sample_ind, self.aug_counter]
             aug_label = self.aug_labels[sample_ind, self.aug_counter]
@@ -218,9 +253,11 @@ class BatchGenerator:
             if self.aug_counter == self.total_augs:
                 self.aug_counter = 0
                 self.full_counter += 1
-        elif self.aug_mode == 'one':
+        elif self.aug_mode == "one":
             # just one random augmentation is used
-            aug_ind_choice = np.random.choice(np.arange(self.total_augs), p=self.aug_probs)
+            aug_ind_choice = np.random.choice(
+                np.arange(self.total_augs), p=self.aug_probs
+            )
 
             aug_image = self.aug_images[sample_ind, aug_ind_choice]
             aug_label = self.aug_labels[sample_ind, aug_ind_choice]
@@ -241,18 +278,26 @@ class BatchGenerator:
 
             Returns: [batch_images, batch_labels]
 
-            batch_images: set of images. shape: (batch_size, image width, image height)
+            batch_images: set of images.
+            shape: (batch_size, image height, image width)
 
-            batch_labels: set of labels. shape: (batch_size, image width, image height) (semantic)
-            or shape: (batch_size,) (patch based)
+            batch_labels: set of labels.
+            shape: (batch_size, image height, image width)
             _________
         """
-        batch_images = np.zeros((self.batch_size, self.image_height, self.image_width,
-                                 self.num_channels), dtype='float32')
+        batch_images = np.zeros(
+            (
+                self.batch_size,
+                self.image_height,
+                self.image_width,
+                self.num_channels,
+            ),
+            dtype="float32",
+        )
 
         batch_labels = np.zeros(self.batch_labels_shape)
 
-        cur_sample_counter = 0    # sample we are up to in the current batch
+        cur_sample_counter = 0  # sample we are up to in the current batch
 
         while cur_sample_counter < self.batch_size:
             # store images and labels here
@@ -260,13 +305,20 @@ class BatchGenerator:
             full_sample_ind = self.sample_shuffle[self.full_counter]
 
             if self.aug_fly is True:
-                # need to perform the augmentations on the fly as they haven't been done already
-                batch_images[cur_sample_counter], batch_labels[cur_sample_counter] = \
-                    self.get_aug_fly(full_sample_ind)
+                # need to perform the augmentations on the fly as they haven't
+                # been done already
+                (
+                    batch_images[cur_sample_counter],
+                    batch_labels[cur_sample_counter],
+                ) = self.get_aug_fly(full_sample_ind)
             elif self.aug_fly is False:
-                # augmentations have been done beforehand and are stored, so just retrieve the appropriate one
+                # augmentations have been done beforehand and are stored, so
+                # just retrieve the appropriate one
                 batch_image, batch_label = self.get_aug_nofly(full_sample_ind)
-                batch_images[cur_sample_counter], batch_labels[cur_sample_counter] = batch_image, batch_label
+                (
+                    batch_images[cur_sample_counter],
+                    batch_labels[cur_sample_counter],
+                ) = (batch_image, batch_label)
 
             cur_sample_counter += 1
 
@@ -292,9 +344,9 @@ class BatchGenerator:
 
             Returns:
 
-            aug_image: next sample. shape: (image width, image height)
+            aug_image: next sample. shape: (image height, image width)
 
-            aug_label: next label. shape: (image width, image height) (semantic) or shape: (1,) (patch based)
+            aug_label: next label. shape: (image height, image width)
             _________
         """
         self.batch_counter = 0
@@ -311,6 +363,7 @@ class BatchGenerator:
 @typechecked
 class DataGenerator(keras.utils.Sequence):
     """Generates data for Keras: see BatchGenerator for parameter details"""
+
     def __init__(
         self,
         images: np.ndarray,

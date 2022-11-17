@@ -29,7 +29,9 @@ from oct_image_segmentation_models.training import (
     training_callbacks,
     training_parameters as tparams,
 )
-from oct_image_segmentation_models.training.training_parameters import TrainingParams
+from oct_image_segmentation_models.training.training_parameters import (
+    TrainingParams,
+)
 
 
 @typechecked
