@@ -37,7 +37,7 @@ def no_aug(image, mask, seg, aug_args, desc_only=False, sample_ind=None, set=Non
         return desc
 
 
-def flip_aug(image, mask, seg, aug_args, desc_only=False, sample_ind=None, set=None):
+def flip_aug(image, mask, aug_args, desc_only=False, sample_ind=None):
     start_augment_time = time.time()
 
     flip_type = aug_args['flip_type']
@@ -55,15 +55,11 @@ def flip_aug(image, mask, seg, aug_args, desc_only=False, sample_ind=None, set=N
             aug_mask = np.flip(mask, axis=axis)
         else:
             aug_mask = None
-        if seg is not None:
-            aug_seg = np.flip(seg, axis=axis)
-        else:
-            aug_seg = None
 
         end_augment_time = time.time()
         augment_time = end_augment_time - start_augment_time
 
-        return aug_image, aug_mask, aug_seg, aug_desc, augment_time
+        return aug_image, aug_mask, aug_desc, augment_time
     else:
         return aug_desc
 

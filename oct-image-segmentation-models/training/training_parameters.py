@@ -58,8 +58,6 @@ class TrainingParams:
         shuffle=True,
         model_save_best=True,
         model_save_monitor=("val_acc", "max"),
-        normalise=True,
-        use_gen=True,
         class_weight: Union[list, str, None] = None,
         channels_last: bool = True,
         early_stopping: bool = True,
@@ -90,10 +88,8 @@ class TrainingParams:
         self.aug_fly = aug_fly
         self.aug_val = aug_val
         self.shuffle = shuffle
-        self.normalise = normalise
         self.model_save_best = model_save_best
         self.model_save_monitor = model_save_monitor
-        self.use_gen = use_gen
         self.class_weight = class_weight
         self.channels_last = channels_last
         self.early_stopping = early_stopping

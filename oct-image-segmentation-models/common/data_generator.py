@@ -1,84 +1,86 @@
 import logging as log
+from math import floor
 import numpy as np
 from tensorflow import keras
-from math import floor
+from typeguard import typechecked
 
 
+@typechecked
 class BatchGenerator:
-    """Class to generate batches of images and their corresponding label to be used for fit_generator (training)
-    or predict_generator (evaluation)
+    """Class to generate batches of images and their corresponding label to be
+    used for fit (training) or predict (evaluation)
+
         _________
 
-        images: array or .hdf5 dataset of all images to be used. Shape: (number of images, width, height)
+        images: array of all images to be used.
+        Shape: (number of images, height, width)
         _________
 
-        labels: array or .hdf5 dataset of all labels to be used. Shape: (number of images, width, height)
+        labels: array oof all labels to be used.
+        Shape: (number of images, height, width)
         _________
 
         batch_size: size of the batch for neural network to process
         _________
 
-        aug_fn_args: tuple of two-tuples containing augmentation function and argument pairs
+        aug_fn_args: tuple of two-tuples containing augmentation function
+        and argument pairs
         _________
 
         aug_mode: mode to use for augmentation
 
-        none: no augmentations -> will just use what is in the images and labels arrays as is
-        one: for each image, one augmentation will be picked from the list of possible augmentation functions
-            chosen based on probabilities in aug_probs.
-        all: for each image, all augmentations will be performed creating a new separate image for each
-
-        note that for patch mode: augs are applied to the full size images before being broken into patches
+        none: no augmentations -> will just use what is in the images and
+        labels arrays as is
+        one: for each image, one augmentation will be picked from the list of
+        possible augmentation functions chosen based on probabilities in
+        aug_probs.
+        all: for each image, all augmentations will be performed creating a
+        new separate image for each
         _________
 
-        aug_probs: probabilities used for selecting augmentations in 'one' mode. Should be values between 0 and 1
-        which add to 1.
+        aug_probs: probabilities used for selecting augmentations in 'one'
+        mode. Should be values between 0 and 1 which add to 1.
         _________
 
-        aug_fly: whether or not to perform all augmentations at the very start or to perform them each time the
-        image is required.
+        aug_fly: whether or not to perform all augmentations at the very start
+        or to perform them each time the image is required.
         _________
 
-        shuffle: whether or not to shuffle the order of the images at the start as well as at the end of each epoch
+        shuffle: whether or not to shuffle the order of the images at the
+        start as well as at the end of each epoch
         _________
 
         """
     def __init__(
         self,
-        imdb,
-        batch_size,
+        images: np.ndarray,
+        labels: np.ndarray,
+        batch_size: int,
         aug_fn_args,
         aug_mode,
         aug_probs,
         aug_fly,
-        shuffle=True,
-        transpose=False,
-        normalise=True,
-        ram_load=1
     ):
-
-        self.shuffle = shuffle              # whether to shuffle the order that images are iterated
-        self.transpose = transpose          # whether to swap rows and columns of batches
-        self.normalise = normalise
+        self.images = images
+        self.labels = labels
         self.batch_counter = 0              # number of batches generated in the current epoch
         self.batch_size = batch_size        # number of samples in a batch
         self.full_counter = 0               # used to track which full size image we are up to
         self.aug_counter = 0                # used to track which augmentation index we are up to (for aug_mode='all')
-
-        self.imdb = imdb
 
         self.aug_fn_args = aug_fn_args
         self.aug_mode = aug_mode
         self.aug_probs = aug_probs
         self.aug_fly = aug_fly
 
-        self.ram_load = ram_load
-
-        self.total_full_images = self.imdb.num_images
+        self.total_full_images = self.images.shape[0]
 
         self.total_raw_samples = self.total_full_images        # total raw samples (w/out augs)
 
-        self.labels_shape = self.imdb.labels_shape
+        self.image_height = self.images.shape[1]
+        self.image_width = self.images.shape[2]
+        self.num_channels = self.images.shape[3]
+        self.labels_shape = self.labels.shape
 
         if self.aug_mode == 'none':
             self.total_samples = self.total_raw_samples
@@ -92,8 +94,9 @@ class BatchGenerator:
             self.total_samples = self.total_raw_samples
         else:
             log.error(
-                f"Unrecognized augmentation mode: {self.aug_mode}. "\
-                "Allowed values: 'none', 'one', 'all'. Exiting...")
+                f"Unrecognized augmentation mode: {self.aug_mode}. "
+                "Allowed values: 'none', 'one', 'all'. Exiting..."
+            )
             exit(1)
 
         # create shape to be used to create the batch labels array
@@ -103,10 +106,6 @@ class BatchGenerator:
         self.batch_labels_shape = tuple(self.batch_labels_shape)
 
         if self.aug_fly is False and self.aug_mode != 'none':
-            if self.ram_load == 0:
-                print("Incompatible parameter selection: ")
-                exit(1)
-
             # don't augment on the fly so generate samples now
             self.aug_images, self.aug_labels = self.setup_augnofly_data()
 
@@ -127,7 +126,7 @@ class BatchGenerator:
             (2) array of labels is created with
             shape: (total full images, total number of augs, image width, image height, num_channels). (semantic)
             or
-            shape: (total full images, total number of augs). (patch based imdb)
+            shape: (total full images, total number of augs).
             _________
             """
 
@@ -136,17 +135,17 @@ class BatchGenerator:
         aug_labels_shape.insert(1, self.total_augs)
         aug_labels_shape = tuple(aug_labels_shape)
 
-        aug_images = np.zeros((self.total_full_images, self.total_augs, self.imdb.image_width,
-                               self.imdb.image_height, self.imdb.num_channels), dtype='uint8')
+        aug_images = np.zeros((self.total_full_images, self.total_augs, self.image_height,
+                               self.image_width, self.num_channels), dtype='uint8')
         aug_labels = np.zeros(aug_labels_shape, dtype='uint8')
 
         for i in range(self.total_full_images):
             for j in range(self.total_augs):
                 aug_fn = self.aug_fn_args[j][0]
                 aug_arg = self.aug_fn_args[j][1]
-                image = self.imdb.get_image(i)
-                label = self.imdb.get_label(i)
-                aug_images[i, j], aug_labels[i, j], _, _, _ = aug_fn(image, label, None, aug_arg, sample_ind=i, set=self.imdb.set)
+                image = self.images[i]
+                label = self.labels[i]
+                aug_images[i, j], aug_labels[i, j], _, _ = aug_fn(image, label, None, aug_arg, sample_ind=i)
 
         return aug_images, aug_labels
 
@@ -161,9 +160,8 @@ class BatchGenerator:
             aug_label: next label. shape: (image width, image height) (semantic) or shape: (1,) (patch based)
             _________
             """
-        raw_image = self.imdb.get_image(sample_ind)
-        raw_label = self.imdb.get_label(sample_ind)
-        raw_seg = self.imdb.get_seg(sample_ind)
+        raw_image = self.images[sample_ind]
+        raw_label = self.labels[sample_ind]
 
         if self.aug_mode == 'all':
             # perform each augmentation (current augmentation indicated by aug_ind)
@@ -171,7 +169,7 @@ class BatchGenerator:
 
             aug_fn = aug_fn_arg[0]
             aug_arg = aug_fn_arg[1]
-            aug_image, aug_label, _, _, _ = aug_fn(raw_image, raw_label, raw_seg, aug_arg, sample_ind=sample_ind, set=self.imdb.set)  # apply augmentation
+            aug_image, aug_label, _, _ = aug_fn(raw_image, raw_label, aug_arg, sample_ind=sample_ind)  # apply augmentation
 
             self.aug_counter += 1  # move to the next augmentation ready for next time
             if self.aug_counter == self.total_augs:
@@ -186,7 +184,7 @@ class BatchGenerator:
             aug_fn = aug_fn_arg[0]
             aug_arg = aug_fn_arg[1]
 
-            aug_image, aug_label, _, _, _ = aug_fn(raw_image, raw_label, raw_seg, aug_arg, sample_ind=sample_ind, set=self.imdb.set)  # apply augmentation
+            aug_image, aug_label, _, _ = aug_fn(raw_image, raw_label, aug_arg, sample_ind=sample_ind)  # apply augmentation
 
             self.full_counter += 1  # just the single random augmentation so move to the next raw image
         else:
@@ -208,8 +206,8 @@ class BatchGenerator:
             aug_label: next label. shape: (image width, image height) (semantic) or shape: (1,) (patch based)
             _________
             """
-        raw_image = self.imdb.get_image(sample_ind)
-        raw_label = self.imdb.get_label(sample_ind)
+        raw_image = self.images[sample_ind]
+        raw_label = self.labels[sample_ind]
 
         if self.aug_mode == 'all':
             # all augmentations are used
@@ -249,8 +247,8 @@ class BatchGenerator:
             or shape: (batch_size,) (patch based)
             _________
         """
-        batch_images = np.zeros((self.batch_size, self.imdb.image_width, self.imdb.image_height,
-                                 self.imdb.num_channels), dtype='float32')
+        batch_images = np.zeros((self.batch_size, self.image_height, self.image_width,
+                                 self.num_channels), dtype='float32')
 
         batch_labels = np.zeros(self.batch_labels_shape)
 
@@ -283,21 +281,13 @@ class BatchGenerator:
             self.batch_counter = 0
 
         # normalise batch images before passing to network
-        if self.normalise is True:
-            batch_images /= 255
-
-        if self.transpose is True:
-            batch_images = np.transpose(batch_images, axes=(0, 2, 1, 3))
-            if len(batch_labels.shape) == 4:
-                # labels are masks
-                batch_labels = np.transpose(batch_labels, axes=(0, 2, 1, 3))
+        batch_images /= 255.0
 
         return [batch_images, batch_labels]
 
     def handle_epoch_end(self):
-        """
-        Handle the end of the epoch by resetting the augmentation index, and the counters for number of batches
-            and number of images. If shuffle is enabled, shuffle the order of the raw images for the next epoch.
+        """Handle the end of the epoch by resetting the augmentation index,
+        and the counters for number of batches and number of images.
             _________
 
             Returns:
@@ -311,40 +301,34 @@ class BatchGenerator:
         self.full_counter = 0
         self.aug_counter = 0
 
-        if self.shuffle:
-            np.random.seed()
-            x = np.arange(self.total_raw_samples)
-            s = np.arange(x.shape[0])
-            np.random.shuffle(s)
-            self.sample_shuffle = self.sample_shuffle[s]
+        np.random.seed()
+        x = np.arange(self.total_raw_samples)
+        s = np.arange(x.shape[0])
+        np.random.shuffle(s)
+        self.sample_shuffle = self.sample_shuffle[s]
 
 
+@typechecked
 class DataGenerator(keras.utils.Sequence):
     """Generates data for Keras: see BatchGenerator for parameter details"""
     def __init__(
         self,
-        imdb,
-        batch_size,
+        images: np.ndarray,
+        labels: np.ndarray,
+        batch_size: int,
         aug_fn_args,
         aug_mode,
         aug_probs,
         aug_fly,
-        shuffle=False,
-        transpose=False,
-        normalise=True,
-        ram_load=1
     ):
         self.batch_gen = BatchGenerator(
-            imdb=imdb,
+            images=images,
+            labels=labels,
             batch_size=batch_size,
             aug_fn_args=aug_fn_args,
             aug_mode=aug_mode,
             aug_probs=aug_probs,
             aug_fly=aug_fly,
-            shuffle=shuffle,
-            transpose=transpose,
-            normalise=normalise,
-            ram_load=ram_load,
         )
 
     def __len__(self):

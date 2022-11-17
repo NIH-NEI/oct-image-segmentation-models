@@ -19,7 +19,6 @@ from oct_image_segmentation_models.common import (
     custom_metrics,
     data_generator as data_gen,
     dataset_loader,
-    image_database as imdb,
     utils,
 )
 from oct_image_segmentation_models.common.mlflow_parameters import (
@@ -30,6 +29,7 @@ from oct_image_segmentation_models.training import (
     training_callbacks,
     training_parameters as tparams,
 )
+from oct_image_segmentation_models.training.training_parameters import TrainingParams
 
 
 @typechecked
@@ -39,9 +39,7 @@ def save_training_params_file(
     training_dataset_md5: str,
     class_weight: Union[np.ndarray, None],
     timestamp,
-    train_params,
-    train_imdb,
-    val_imdb,
+    train_params: TrainingParams,
     opt,
 ):
     config_filename = save_foldername / Path("training_params.hdf5")
@@ -53,10 +51,7 @@ def save_training_params_file(
     config_file.attrs["train_dataset_md5"] = np.array(
         training_dataset_md5, dtype="S1000"
     )
-    config_file.attrs["train_imdb"] = np.array(
-        train_imdb.filename, dtype="S100"
-    )
-    config_file.attrs["val_imdb"] = np.array(val_imdb.filename, dtype="S100")
+
     config_file.attrs["epochs"] = train_params.epochs
     config_file.attrs["loss_name"] = np.array(train_params.loss, dtype="S1000")
     config_file.attrs["metric_name"] = np.array(
@@ -69,43 +64,10 @@ def save_training_params_file(
         config_file.attrs["class_weight"] = np.array("array", dtype="S1000")
         config_file["class_weight"] = class_weight
 
-    config_file.attrs["dim_names"] = np.array(
-        train_imdb.dim_names, dtype="S100"
-    )
-    config_file.attrs["type"] = np.array(train_imdb.type, dtype="S100")
-    if train_imdb.type == "patch":
-        config_file.attrs["patch_size"] = np.array(
-            (train_imdb.image_width, train_imdb.image_height)
-        )
-
-    if train_imdb.dim_inds is None:
-        config_file.attrs["train_dim_inds"] = np.array("all", dtype="S100")
-    else:
-        dim_count = 0
-        for dim_ind in train_imdb.dim_inds:
-            if dim_ind is not None:
-                config_file.attrs[
-                    "train_dim_ind: " + train_imdb.dim_names[dim_count]
-                ] = dim_ind
-            dim_count += 1
-
-    if val_imdb.dim_inds is None:
-        config_file.attrs["val_dim_inds"] = np.array("all", dtype="S100")
-    else:
-        dim_count = 0
-        for dim_ind in val_imdb.dim_inds:
-            if dim_ind is not None:
-                config_file.attrs[
-                    "val_dim_ind: " + val_imdb.dim_names[dim_count]
-                ] = dim_ind
-            dim_count += 1
-
     config_file.attrs["metric"] = np.array(train_params.metric, dtype="S100")
     config_file.attrs["loss"] = np.array(train_params.loss, dtype="S100")
     config_file.attrs["batch_size"] = train_params.batch_size
     config_file.attrs["shuffle"] = train_params.shuffle
-    if train_imdb.padding is not None:
-        config_file.attrs["padding"] = np.array(train_imdb.padding)
 
     config_file.attrs["aug_mode"] = np.array(
         train_params.aug_mode, dtype="S100"
@@ -176,10 +138,6 @@ def save_training_params_file(
         else:
             config_file.attrs["opt_param: " + key] = opt_config[key]
 
-    config_file.attrs["normalise"] = np.array(train_params.normalise)
-
-    config_file.attrs["ram_load"] = train_imdb.ram_load
-
 
 def train_model(
     training_params: tparams.TrainingParams,
@@ -231,7 +189,6 @@ def train_model(
     log.info(f"Detected {num_classes} classes")
     input_channels = train_images.shape[-1]
     log.info(f"Detected {input_channels} input channels")
-    training_dataset_name = training_params.training_dataset_path.stem
 
     strategy = tf.distribute.MirroredStrategy()
     log.info(f"Number of devices: {strategy.num_replicas_in_sync}")
@@ -275,27 +232,10 @@ def train_model(
 
     training_dataset_md5 = utils.md5(training_dataset_path)
 
-    train_imdb = imdb.ImageDatabase(
-        images=train_images,
-        labels=train_labels,
-        name=training_dataset_name,
-        filename=training_dataset_path,
-        mode_type="fullsize",
-        num_classes=num_classes,
-    )
-
-    val_imdb = imdb.ImageDatabase(
-        images=val_images,
-        labels=val_labels,
-        name=training_dataset_name,
-        filename=training_dataset_path,
-        mode_type="fullsize",
-        num_classes=num_classes,
-    )
-
     epochs = training_params.epochs
     initial_model_path = training_params.initial_model
     early_stopping = training_params.early_stopping
+    model_architecture = training_params.model_architecture
     model_hyperparameters = training_params.model_hyperparameters
 
     if initial_model_path:
@@ -324,10 +264,8 @@ def train_model(
     aug_probs = training_params.aug_probs
     aug_fly = training_params.aug_fly
     aug_val = training_params.aug_val
-    use_gen = training_params.use_gen
     patience = training_params.patience
     restore_best_weights = training_params.restore_best_weights
-    ram_load = train_imdb.ram_load
 
     mlflow.log_params(
         {
@@ -343,13 +281,6 @@ def train_model(
         }
     )
 
-    if use_gen is False and ram_load == 0:
-        print("Incompatible parameter selection")
-        exit(1)
-    elif ram_load == 0 and aug_fly is False and aug_mode != "none":
-        print("Incompatible parameter selection")
-        exit(1)
-
     if aug_val is False:
         aug_val_mode = "none"
         aug_val_fn_args = []
@@ -361,38 +292,18 @@ def train_model(
         aug_val_probs = aug_probs
         aug_val_fly = aug_fly
 
-    shuffle = training_params.shuffle
-    normalise = training_params.normalise
     monitor = training_params.model_save_monitor
-
     save_best = training_params.model_save_best
-
-    dataset_name = train_imdb.name
-
     timestamp = utils.get_timestamp()
 
     results_location = training_params.results_location
     save_foldername = (
         results_location
         / Path(mlflow_run.info.run_id)
-        / Path(timestamp + "_U-net_" + dataset_name)
+        / Path(timestamp + "_" + model_architecture)
     )
 
-    if not os.path.exists(save_foldername):
-        os.makedirs(save_foldername)
-    else:
-        count = 2
-        testsave_foldername = results_location / Path(
-            timestamp + "_" + str(count) + "_U-net_" + dataset_name
-        )
-        while os.path.exists(testsave_foldername):
-            count += 1
-            testsave_foldername = results_location / Path(
-                timestamp + "_" + str(count) + "_U-net_" + dataset_name
-            )
-
-        save_foldername = testsave_foldername
-        os.makedirs(save_foldername)
+    os.makedirs(save_foldername)
 
     epoch_model_name = "model_epoch{epoch:02d}.hdf5"
 
@@ -421,6 +332,7 @@ def train_model(
 
     model_summary = []
     model.summary(print_fn=lambda line: model_summary.append(line))
+
     save_training_params_file(
         save_foldername,
         "\n".join(model_summary),
@@ -428,33 +340,27 @@ def train_model(
         c_weight,
         timestamp,
         training_params,
-        train_imdb,
-        val_imdb,
         optimizer,
     )
 
     train_gen = data_gen.DataGenerator(
-        train_imdb,
+        train_images,
+        train_labels,
         batch_size,
         aug_fn_args,
         aug_mode,
         aug_probs,
         aug_fly,
-        shuffle,
-        normalise=normalise,
-        ram_load=ram_load,
     )
 
     val_gen = data_gen.DataGenerator(
-        val_imdb,
+        val_images,
+        val_labels,
         batch_size,
         aug_val_fn_args,
         aug_val_mode,
         aug_val_probs,
         aug_val_fly,
-        shuffle,
-        normalise=normalise,
-        ram_load=ram_load,
     )
 
     train_gen_total_samples = train_gen.get_total_samples()
