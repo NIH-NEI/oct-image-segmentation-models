@@ -1,5 +1,6 @@
 import focal_loss as fl
 import numpy as np
+from keras.utils import losses_utils
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.losses import binary_crossentropy
@@ -88,9 +89,13 @@ class SparseCategoricalFocalDiceLoss(fl.SparseCategoricalFocalLoss):
         gamma,
         class_weight: Optional[Any] = None,
         from_logits: bool = False,
+        reduction=losses_utils.ReductionV2.AUTO,
+        name="sparse_categorical_focal_dice_loss",
         **kwargs,
     ):
-        super().__init__(gamma, class_weight, from_logits, **kwargs)
+        super().__init__(
+            gamma, class_weight, from_logits, name=name, reduction=reduction
+        )
         self.num_classes = num_classes
         self.focal_loss_weight = focal_loss_weight
         self.dice_loss_fn = dice_loss(
@@ -113,7 +118,7 @@ class SparseCategoricalFocalDiceLoss(fl.SparseCategoricalFocalLoss):
         config = super().get_config()
         config.update(
             num_classes=self.num_classes,
-            focal_weight=self.focal_loss_weight,
+            focal_loss_weight=self.focal_loss_weight,
             dice_loss_fn=self.dice_loss_fn,
         )
         return config

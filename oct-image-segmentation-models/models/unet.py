@@ -1,3 +1,4 @@
+from tensorflow.keras import Model
 from tensorflow.keras.layers import (
     Activation,
     BatchNormalization,
@@ -8,7 +9,8 @@ from tensorflow.keras.layers import (
     MaxPooling2D,
     UpSampling2D,
 )
-from tensorflow.keras.models import Model
+from typeguard import typechecked
+from typing import Tuple
 
 
 def batch_activate(x):
@@ -53,15 +55,17 @@ def unet_dec_block(
     return x
 
 
+@typechecked
 def unet(
-    start_neurons,
-    pool_layers,
-    conv_layers,
-    enc_kernel,
-    dec_kernel,
-    input_channels,
-    output_channels,
-):
+    *,
+    input_channels: int,
+    output_channels: int,
+    start_neurons: int = 8,
+    pool_layers: int = 4,
+    conv_layers: int = 2,
+    enc_kernel: tuple = (3, 3),
+    dec_kernel: tuple = (2, 2),
+) -> Tuple[Model, dict]:
     inp = Input(batch_shape=(None, None, None, input_channels))
 
     x = inp
@@ -104,4 +108,14 @@ def unet(
         activation="softmax",
     )(x)
 
-    return Model(inputs=inp, outputs=o)
+    hyperparameters = {
+        "input_channels": input_channels,
+        "output_channels": output_channels,
+        "start_neurons": start_neurons,
+        "pool_layers": pool_layers,
+        "conv_layers": conv_layers,
+        "enc_kernel": enc_kernel,
+        "dec_kernel": dec_kernel,
+    }
+
+    return Model(inputs=inp, outputs=o), hyperparameters

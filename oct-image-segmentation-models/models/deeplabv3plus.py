@@ -1,6 +1,8 @@
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
+from tensorflow.keras import layers, Model
+from typeguard import typechecked
+from typing import Tuple
 
 
 def convolution_block(
@@ -54,7 +56,10 @@ def DilatedSpatialPyramidPooling(dspp_input):
     return output
 
 
-def DeeplabV3Plus(image_width, image_height, num_classes):
+@typechecked
+def DeeplabV3Plus(
+    image_width, image_height, num_classes
+) -> Tuple[Model, dict]:
     model_input = keras.Input(shape=(image_height, image_width, 3))
     resnet50 = keras.applications.ResNet50(
         weights="imagenet", include_top=False, input_tensor=model_input
@@ -82,4 +87,11 @@ def DeeplabV3Plus(image_width, image_height, num_classes):
     model_output = layers.Conv2D(
         num_classes, kernel_size=(1, 1), padding="same"
     )(x)
-    return keras.Model(inputs=model_input, outputs=model_output)
+
+    hyperparameters = {
+        "image_width": image_width,
+        "image_height": image_height,
+        "num_classes": num_classes,
+    }
+
+    return Model(inputs=model_input, outputs=model_output), hyperparameters

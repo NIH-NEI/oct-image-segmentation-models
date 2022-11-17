@@ -39,6 +39,7 @@ class TrainingParams:
 
     def __init__(
         self,
+        model_architecture: Union[str, None],
         training_dataset_path: Path,
         initial_model: Union[Path, None],
         results_location: Path,
@@ -48,6 +49,7 @@ class TrainingParams:
         metric: str,
         epochs: int,
         batch_size: int,
+        model_hyperparameters: dict = {},
         aug_fn_args=((aug.no_aug, {}),),
         aug_mode="none",
         aug_probs=(),
@@ -64,6 +66,15 @@ class TrainingParams:
         restore_best_weights: bool = True,
         patience: int = 50,
     ):
+        if (model_architecture is None and initial_model is None) or (
+            model_architecture is not None and initial_model is not None
+        ):
+            raise ValueError(
+                "Either 'model_architecture' or 'initial_model' "
+                "need to be provided."
+            )
+        self.model_architecture = model_architecture
+        self.model_hyperparameters = model_hyperparameters
         self.training_dataset_path = training_dataset_path
         self.initial_model = initial_model
         self.results_location = results_location

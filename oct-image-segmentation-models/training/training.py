@@ -25,7 +25,7 @@ from oct_image_segmentation_models.common import (
 from oct_image_segmentation_models.common.mlflow_parameters import (
     MLflowParameters,
 )
-from oct_image_segmentation_models.models import unet
+from oct_image_segmentation_models.models import build_model
 from oct_image_segmentation_models.training import (
     training_callbacks,
     training_parameters as tparams,
@@ -274,17 +274,6 @@ def train_model(
         val_labels = to_categorical(val_labels, num_classes)
 
     training_dataset_md5 = utils.md5(training_dataset_path)
-    mlflow.log_params(
-        {
-            "training_dataset_path": training_dataset_path,
-            "training_dataset_md5": training_dataset_md5,
-            "augmentation_mode": training_params.aug_mode,
-            "loss_name": training_params.loss,
-            "metric_name": training_params.metric,
-            "loss_fn_class_weight": training_params.class_weight,
-            "class_weight_array": c_weight,
-        }
-    )
 
     train_imdb = imdb.ImageDatabase(
         images=train_images,
@@ -307,21 +296,20 @@ def train_model(
     epochs = training_params.epochs
     initial_model_path = training_params.initial_model
     early_stopping = training_params.early_stopping
+    model_hyperparameters = training_params.model_hyperparameters
 
     if initial_model_path:
         log.info(f"Starting training from model: {initial_model_path}")
         model = utils.load_model(initial_model_path)
     else:
         log.info("Starting training from scratch U-net model")
+
+        model_hyperparameters["input_channels"] = input_channels
+        model_hyperparameters["output_channels"] = num_classes
         with strategy.scope():
-            model = unet.unet(
-                8,
-                4,
-                2,
-                (3, 3),
-                (2, 2),
-                input_channels=input_channels,
-                output_channels=num_classes,
+            model, model_hyperparameters = build_model(
+                training_params.model_architecture,
+                **model_hyperparameters,
             )
 
             model.compile(
@@ -340,6 +328,20 @@ def train_model(
     patience = training_params.patience
     restore_best_weights = training_params.restore_best_weights
     ram_load = train_imdb.ram_load
+
+    mlflow.log_params(
+        {
+            "model_architecture": training_params.model_architecture,
+            "model_hyperparameters": model_hyperparameters,
+            "training_dataset_path": training_dataset_path,
+            "training_dataset_md5": training_dataset_md5,
+            "augmentation_mode": training_params.aug_mode,
+            "loss_name": training_params.loss,
+            "metric_name": training_params.metric,
+            "loss_fn_class_weight": training_params.class_weight,
+            "class_weight_array": c_weight,
+        }
+    )
 
     if use_gen is False and ram_load == 0:
         print("Incompatible parameter selection")
