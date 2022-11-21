@@ -5,7 +5,7 @@ from setuptools import setup
 
 
 def get_version():
-    filename = "oct-image-segmentation-models/__init__.py"
+    filename = "oct_image_segmentation_models/__init__.py"
     with open(filename) as f:
         match = re.search(
             r"""^__version__ = ['"]([^'"]*)['"]""", f.read(), re.M
@@ -20,7 +20,7 @@ def get_install_requires():
     return [
         "focal-loss",
         "matplotlib",
-        "mlflow",
+        "mlflow==1.29",
         "scikit-learn",
         "tensorflow==2.9.1",
         "typeguard",
