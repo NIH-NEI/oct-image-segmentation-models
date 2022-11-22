@@ -5,11 +5,12 @@ import logging as log
 import mlflow
 from mlflow.exceptions import MlflowException
 import numpy as np
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import tensorflow as tf
 from typeguard import typechecked
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
+from typing import Union
 
 from oct_image_segmentation_models.common import custom_losses, custom_metrics
 
@@ -23,7 +24,7 @@ def get_timestamp():
 
 @typechecked
 def load_model(
-    model_path: Path, **kwargs
+    model_path: Union[Path, PurePosixPath], **kwargs
 ) -> keras.engine.functional.Functional:
     custom_objects = dict(
         list(custom_losses.custom_loss_objects.items())

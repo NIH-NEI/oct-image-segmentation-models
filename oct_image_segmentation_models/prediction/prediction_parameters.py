@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typeguard import typechecked
+from typing import Union
 
 from oct_image_segmentation_models.common import utils
 from oct_image_segmentation_models.common.dataset import Dataset
@@ -26,7 +27,7 @@ class PredictionSaveParams:
 class PredictionParams:
     def __init__(
         self,
-        model_path: Path,
+        model_path: Union[Path, PurePosixPath],
         mlflow_tracking_uri: str | None,
         dataset: Dataset,
         config_output_dir: Path,
