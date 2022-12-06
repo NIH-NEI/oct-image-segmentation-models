@@ -40,11 +40,11 @@ def augment_dataset(images, masks, segs, aug_fn_arg):
 
 
 def no_aug(
-    image, mask, seg, aug_args, desc_only=False, sample_ind=None, set=None
+    image, mask, aug_args, desc_only=False, sample_ind=None, set=None
 ):
     desc = "no aug"
     if desc_only is False:
-        return image, mask, seg, desc, 0
+        return image, mask, desc, 0
     else:
         return desc
 

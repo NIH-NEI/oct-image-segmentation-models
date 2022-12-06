@@ -79,7 +79,7 @@ def save_training_params_file(
             aug_fn = train_params.aug_fn_args[aug_ind][0]
             aug_arg = train_params.aug_fn_args[aug_ind][1]
 
-            aug_desc = aug_fn(None, None, None, aug_arg, True)
+            aug_desc = aug_fn(None, None, aug_arg, True)
 
             if type(aug_arg) is not dict:
                 config_file.attrs["aug_" + str(aug_ind + 1)] = np.array(
