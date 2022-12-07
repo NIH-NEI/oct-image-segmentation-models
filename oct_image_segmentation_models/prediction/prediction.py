@@ -26,16 +26,13 @@ from oct_image_segmentation_models.prediction.prediction_parameters import (
 class PredictionOutput:
     def __init__(
         self,
-        image: np.array,
+        image: np.ndarray,
         image_name: Path,
         image_output_dir: Path,
-        predicted_labels: np.array,
-        categorical_pred: np.array,
-        boundary_maps: np.array,
-        flattened_image,
-        offsets,
-        flatten_boundary,
-        delineations,
+        predicted_labels: np.ndarray,
+        categorical_pred: np.ndarray,
+        boundary_maps: np.ndarray,
+        gs_pred_segs: np.ndarray,
     ) -> None:
         self.image = image
         self.image_name = image_name
@@ -43,10 +40,7 @@ class PredictionOutput:
         self.predicted_labels = predicted_labels
         self.categorical_pred = categorical_pred
         self.boundary_maps = boundary_maps
-        self.flattened_image = flattened_image
-        self.offsets = offsets
-        self.flatten_boundary = flatten_boundary
-        self.delineations = delineations
+        self.gs_pred_segs = gs_pred_segs
 
 
 def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
@@ -123,40 +117,31 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
         # Segment probability maps using graph search
         log.info("Running graph search, segmenting boundary maps...")
         num_classes = len(categorical_pred)
+        predict_image_t = np.transpose(predict_image, axes=[1, 0, 2])
+        boundary_maps_t = np.transpose(boundary_maps, axes=[0, 2, 1])
         graph_structure = graph_search.create_graph_structure(
-            predict_image.shape
+            predict_image_t.shape
         )
 
         start_graph_time = time.time()
-        delineations, _, _ = graph_search.segment_maps(
-            boundary_maps, None, graph_structure
+        gs_pred_segs, _, _ = graph_search.segment_maps(
+            boundary_maps_t, None, graph_structure
         )
 
         reconstructed_maps = datacon.create_area_mask(
-            predict_image.shape, delineations
+            predict_image_t.shape, gs_pred_segs
         )
+
         reconstructed_maps = to_categorical(
             reconstructed_maps, num_classes=num_classes
         )
         reconstructed_maps = np.expand_dims(reconstructed_maps, axis=0)
 
-        [prediction_label_gs, reconstructed_maps] = utils.perform_argmax(
+        [gs_prediction_label, reconstructed_maps] = utils.perform_argmax(
             reconstructed_maps
         )
 
-        prediction_label_gs = np.squeeze(prediction_label_gs)
-
-        [flattened_image, offsets, flatten_boundary] = (None, None, None)
-        if predict_params.flatten_image:
-            [
-                flattened_image,
-                offsets,
-                flatten_boundary,
-            ] = datacon.flatten_image_boundary(
-                predict_image,
-                delineations[predict_params.flatten_ind],
-                poly=predict_params.flatten_poly,
-            )
+        gs_prediction_label = np.transpose(np.squeeze(gs_prediction_label))
 
         end_graph_time = time.time()
         graph_time = end_graph_time - start_graph_time
@@ -165,12 +150,9 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
             predict_params,
             predict_image,
             image_name,
-            prediction_label_gs,
-            delineations,
+            gs_prediction_label,
+            gs_pred_segs,
             graph_time,
-            flattened_image,
-            flatten_boundary,
-            offsets,
             image_output_dir,
         )
 
@@ -181,10 +163,7 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
             predicted_labels=predicted_labels,
             categorical_pred=categorical_pred,
             boundary_maps=boundary_maps,
-            flattened_image=flattened_image,
-            offsets=offsets,
-            flatten_boundary=flatten_boundary,
-            delineations=delineations,
+            gs_pred_segs=gs_pred_segs,
         )
 
         prediction_outputs.append(prediction_output)
@@ -211,16 +190,16 @@ def save_predict_config_file(predict_params: PredictionParams):
 @typechecked
 def save_image_prediction_results(
     pred_params: PredictionParams,
-    predict_image: np.array,
+    predict_image: np.ndarray,
     image_name: Path,
-    predicted_labels: np.array,
-    categorical_pred: np.array,
-    boundary_maps: np.array,
+    predicted_labels: np.ndarray,
+    categorical_pred: np.ndarray,
+    boundary_maps: np.ndarray,
     predict_time: float,
     convert_time: float,
     output_dir: Path,
 ):
-    hdf5_file = h5py.File(output_dir / Path("unet_prediction_info.hdf5"), "w")
+    hdf5_file = h5py.File(output_dir / Path("prediction_info.hdf5"), "w")
 
     if pred_params.save_params.categorical_pred is True:
         hdf5_file.create_dataset(
@@ -243,7 +222,7 @@ def save_image_prediction_results(
         if pred_params.save_params.png_images is True:
             plotting.save_image_plot(
                 predicted_labels,
-                output_dir / Path("predicted_labels.png"),
+                output_dir / Path("non_gs_predicted_segmentation_map.png"),
                 cmap=plotting.colors.ListedColormap(
                     plotting.region_colours, N=len(categorical_pred)
                 ),
@@ -279,45 +258,42 @@ def save_image_prediction_results(
 @typechecked
 def save_graph_based_prediction_results(
     predict_params: PredictionParams,
-    predict_image: np.array,
+    predict_image: np.ndarray,
     image_name: Path,
-    prediction_label_gs: np.array,
-    delineations: np.array,
+    gs_prediction_label: np.ndarray,
+    gs_pred_segs: np.ndarray,
     graph_time: float,
-    flattened_image: np.array,
-    flatten_boundary: np.array,
-    offsets: np.array,
     output_dir: Path,
 ):
-    num_classes = delineations.shape[0] + 1
+    num_classes = gs_pred_segs.shape[0] + 1
     # Save graph search based prediction results
     hdf5_file = h5py.File(
         output_dir / Path("graph_search_prediction_info.hdf5"), "w"
     )
 
     np.savetxt(
-        output_dir / Path("boundaries.csv"),
-        delineations,
+        output_dir / Path("gs_boundaries.csv"),
+        gs_pred_segs,
         delimiter=",",
         fmt="%d",
     )
 
     np.savetxt(
-        output_dir / Path("segmentation_map.csv"),
-        np.transpose(prediction_label_gs),
+        output_dir / Path("gs_segmentation_map.csv"),
+        gs_prediction_label,
         fmt="%d",
         delimiter=",",
     )
 
-    hdf5_file.create_dataset("delineations", data=delineations, dtype="uint16")
+    hdf5_file.create_dataset("gs_pred_segs", data=gs_pred_segs, dtype="uint16")
 
     hdf5_file.create_dataset(
-        "prediction_label_gs", data=prediction_label_gs, dtype="uint8"
+        "gs_predicted_labels", data=gs_prediction_label, dtype="uint8"
     )
 
     plotting.save_image_plot(
-        prediction_label_gs,
-        output_dir / Path("prediction_label_gs.png"),
+        gs_prediction_label,
+        output_dir / Path("gs_predicted_segmentation_map.png"),
         cmap=plotting.colors.ListedColormap(
             plotting.region_colours, N=num_classes
         ),
@@ -326,8 +302,8 @@ def save_graph_based_prediction_results(
     plotting.save_segmentation_plot(
         predict_image,
         cm.gray,
-        output_dir / Path("delin_plot.png"),
-        delineations,
+        output_dir / Path("gs_predicted_boundaries_ovelay_plot.png"),
+        gs_pred_segs,
         predictions=None,
         column_range=predict_params.col_error_range,
     )
@@ -340,32 +316,5 @@ def save_graph_based_prediction_results(
         utils.get_timestamp(), dtype="S1000"
     )
     hdf5_file.attrs["graph_time"] = np.array(graph_time)
-
-    if predict_params.flatten_image:
-        hdf5_file.create_dataset(
-            "flatten_boundary", data=flatten_boundary, dtype="uint16"
-        )
-        hdf5_file.create_dataset(
-            "flatten_image", data=flattened_image, dtype="uint8"
-        )
-        hdf5_file.create_dataset(
-            "flatten_offsets", data=offsets, dtype="uint16"
-        )
-        if predict_params.save_params.png_images:
-            plotting.save_image_plot(
-                flattened_image,
-                output_dir / Path("flattened_image.png"),
-                cmap=cm.gray,
-                vmin=0,
-                vmax=255,
-            )
-            plotting.save_segmentation_plot(
-                predict_image,
-                cm.gray,
-                output_dir / Path("flatten_boundary_plot.png"),
-                np.expand_dims(flatten_boundary, axis=0),
-                predictions=None,
-                column_range=predict_params.col_error_range,
-            )
 
     hdf5_file.close()

@@ -244,7 +244,7 @@ def train_model(
         log.info(f"Starting training from model: {initial_model_path}")
         model = utils.load_model(initial_model_path)
     else:
-        log.info("Starting training from scratch U-net model")
+        log.info(f"Starting training from scratch {model_architecture} model")
 
         model_hyperparameters["input_channels"] = input_channels
         model_hyperparameters["output_channels"] = num_classes

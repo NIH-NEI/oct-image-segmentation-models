@@ -36,7 +36,7 @@ def load_model(
         mlflow.set_tracking_uri(mlflow_tracking_uri)
         try:
             loaded_model = mlflow.keras.load_model(
-                str(model_path), custom_objects=custom_objects
+                str(model_path), custom_objects=custom_objects, compile=False,
             )
         except MlflowException as exc:
             if exc.get_http_status_code() == 401:
@@ -104,12 +104,12 @@ def convert_predictions_to_maps_semantic(
     #TODO: Document functionality
     """
     num_samples = categorical_pred.shape[0]
-    img_width = categorical_pred.shape[2]
-    img_height = categorical_pred.shape[3]
     num_maps = categorical_pred.shape[1]
+    img_height = categorical_pred.shape[2]
+    img_width = categorical_pred.shape[3]
 
     boundary_maps = np.zeros(
-        (num_samples, num_maps - 1, img_width, img_height), dtype="uint8"
+        (num_samples, num_maps - 1, img_height, img_width), dtype="uint8"
     )
 
     for sample_ind in range(num_samples):
@@ -122,7 +122,7 @@ def convert_predictions_to_maps_semantic(
             ):
                 cur_map = categorical_pred[sample_ind, map_ind - 1, :, :]
 
-                grad_map = np.gradient(cur_map, axis=1)
+                grad_map = np.gradient(cur_map, axis=0)
 
                 grad_map = -grad_map
 
@@ -130,7 +130,7 @@ def convert_predictions_to_maps_semantic(
 
                 grad_map *= 2  # scale map to between 0 and 1
 
-                rolled_grad = np.roll(grad_map, -1, axis=1)
+                rolled_grad = np.roll(grad_map, -1, axis=0)
 
                 grad_map -= rolled_grad
                 grad_map[grad_map < 0] = 0
@@ -140,13 +140,13 @@ def convert_predictions_to_maps_semantic(
             else:
                 cur_map = categorical_pred[sample_ind, map_ind, :, :]
 
-                grad_map = np.gradient(cur_map, axis=1)
+                grad_map = np.gradient(cur_map, axis=0)
 
                 grad_map[grad_map < 0] = 0
 
                 grad_map *= 2  # scale map to between 0 and 1
 
-                rolled_grad = np.roll(grad_map, -1, axis=1)
+                rolled_grad = np.roll(grad_map, -1, axis=0)
 
                 grad_map -= rolled_grad
                 grad_map[grad_map < 0] = 0

@@ -2,7 +2,6 @@ from matplotlib import pyplot as plt
 from matplotlib import cm, colors
 import numpy as np
 from pathlib import Path
-from tensorflow.keras import backend as K
 from typeguard import typechecked
 
 
@@ -78,17 +77,11 @@ def save_cur_trainval_plot(acc_name, loss_name, network_name,
 
 def setup_image_plot(image, cmap, vmin=None, vmax=None):
     if image.ndim == 3:
-        if K.image_data_format() == 'channels_last':
-            image_width, image_height = image.shape[:-1]
-            if image.shape[2] == 1:
-                image = image[:, :, 0]
-        elif K.image_data_format == 'channels_first':
-            image_width, image_height = image.shape[1:]
-            if image.shape[0] == 1:
-                image = image[0, :, :]
-
+        image_height, image_width = image.shape[:-1]
+        if image.shape[2] == 1:
+            image = image[:, :, 0]
     elif image.ndim == 2:
-        image_width, image_height = image.shape
+        image_height, image_width = image.shape
 
     fig = plt.figure(num=None, figsize=(image_width / 100, image_height / 100), dpi=100)
     ax = plt.Axes(fig, [0., 0., 1., 1.])
@@ -96,9 +89,9 @@ def setup_image_plot(image, cmap, vmin=None, vmax=None):
     fig.add_axes(ax)
 
     if cmap is None:
-        plt.imshow(np.transpose(image, (1, 0, 2)), vmin=vmin, vmax=vmax)
+        plt.imshow(image, vmin=vmin, vmax=vmax)
     else:
-        plt.imshow(np.transpose(image), cmap=cmap, vmin=vmin, vmax=vmax)
+        plt.imshow(image, cmap=cmap, vmin=vmin, vmax=vmax)
 
 
 @typechecked
@@ -154,4 +147,3 @@ def save_segmentation_plot(image, image_cmap, filename, truths, predictions, col
 
     plt.savefig(filename)
     plt.close()
-

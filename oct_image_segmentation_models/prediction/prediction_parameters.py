@@ -32,11 +32,6 @@ class PredictionParams:
         dataset: Dataset,
         config_output_dir: Path,
         save_params: PredictionSaveParams,
-        flatten_image: bool = False,
-        flatten_ind: int = 0,
-        flatten_poly: bool = False,
-        flatten_pred_edges: bool = False,
-        flat_marg: int = 0,
         trim_maps: bool = False,
         trim_ref_ind: int = 0,
         trim_window: tuple = (0, 0),
@@ -54,11 +49,6 @@ class PredictionParams:
         self.num_classes = self.loaded_model.output.shape[-1]
         self.config_output_dir = config_output_dir
         self.save_params = save_params
-        self.flatten_image = flatten_image
-        self.flatten_ind = flatten_ind
-        self.flatten_poly = flatten_poly
-        self.flatten_pred_edges = flatten_pred_edges
-        self.flat_marg = flat_marg
         self.trim_maps = trim_maps
         self.trim_ref_ind = trim_ref_ind
         self.trim_window = trim_window
@@ -66,5 +56,5 @@ class PredictionParams:
         self.col_error_range = col_error_range
         if col_error_range is None:
             self.col_error_range = range(
-                dataset.images[0].shape[0]
+                dataset.images[0].shape[1]
             )  # image_width

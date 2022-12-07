@@ -38,7 +38,7 @@ class EvaluationOutput:
         predicted_labels: np.ndarray,
         categorical_pred: np.ndarray,
         boundary_maps: np.ndarray,
-        delineations: np.ndarray,
+        gs_pred_segs: np.ndarray,
         errors: np.ndarray,
         mean_abs_err: np.ndarray,
         mean_err: np.ndarray,
@@ -52,7 +52,7 @@ class EvaluationOutput:
         self.predicted_labels = predicted_labels
         self.categorical_pred = categorical_pred
         self.boundary_maps = boundary_maps
-        self.delineations = delineations
+        self.gs_pred_segs = gs_pred_segs
         self.errors = errors
         self.mean_abs_err = mean_abs_err
         self.mean_err = mean_err
@@ -78,7 +78,7 @@ def evaluate_model(
         )
 
     eval_segments = np.swapaxes(
-        utils.generate_boundary(np.squeeze(eval_labels, axis=3), axis=2), 0, 1
+        utils.generate_boundary(np.squeeze(eval_labels, axis=3), axis=1), 0, 1
     )
 
     test_labels = to_categorical(eval_labels, eval_params.num_classes)
@@ -163,6 +163,7 @@ def evaluate_model(
             eval_params,
             eval_image,
             eval_image_name,
+            eval_seg,
             predicted_labels,
             categorical_pred,
             eval_label,
@@ -173,13 +174,15 @@ def evaluate_model(
         )
 
         print("Running graph search, segmenting boundary maps...")
-        graph_structure = graph_search.create_graph_structure(eval_image.shape)
+        eval_image_t = np.transpose(eval_image, axes=[1, 0, 2])
+        boundary_maps_t = np.transpose(boundary_maps, axes=[0, 2, 1])
+        graph_structure = graph_search.create_graph_structure(eval_image_t.shape)
 
         start_graph_time = time.time()
 
         """
-        delineations: A matrix of shape (# of classes (layers) - 1,
-        imgage_width) where delineations[i, col] specifies the row
+        gs_pred_segs: A matrix of shape (# of classes (layers) - 1,
+        imgage_width) where gs_pred_segs[i, col] specifies the row
         (y-dimension) of the ith layer
 
         errors: A matrix of shape (# of classes (layers) - 1, imgage_width)
@@ -190,30 +193,30 @@ def evaluate_model(
         of shape (# of classes (layers) - 1, imgage_width, image_height). It is
         the normalized version (0 to 1) of the 'boundary_maps' input.
         """
-        delineations, errors, _ = graph_search.segment_maps(
-            boundary_maps,
+        gs_pred_segs, errors, _ = graph_search.segment_maps(
+            boundary_maps_t,
             eval_seg,
             graph_structure,
         )
 
         reconstructed_maps = datacon.create_area_mask(
-            eval_image.shape, delineations
+            eval_image_t.shape, gs_pred_segs
         )
         reconstructed_maps = to_categorical(
             reconstructed_maps, num_classes=eval_params.num_classes
         )
         reconstructed_maps = np.expand_dims(reconstructed_maps, axis=0)
 
-        [eval_label_gs, reconstructed_maps] = common_utils.perform_argmax(
+        [gs_eval_label, reconstructed_maps] = common_utils.perform_argmax(
             reconstructed_maps
         )
 
         gs_dices = _calc_dice(
             reconstructed_maps,
-            np.expand_dims(eval_label, axis=0),
+            np.expand_dims(np.transpose(eval_label, axes=[1, 0, 2]), axis=0),
         )
 
-        eval_label_gs = np.squeeze(eval_label_gs)
+        gs_eval_label = np.transpose(np.squeeze(gs_eval_label))
 
         end_graph_time = time.time()
         graph_time = end_graph_time - start_graph_time
@@ -233,9 +236,9 @@ def evaluate_model(
             eval_params,
             eval_image,
             eval_image_name,
-            eval_label_gs,
-            delineations,
             eval_seg,
+            gs_eval_label,
+            gs_pred_segs,
             gs_dices,
             errors,
             mean_abs_err,
@@ -254,7 +257,7 @@ def evaluate_model(
             predicted_labels=predicted_labels,
             categorical_pred=categorical_pred,
             boundary_maps=boundary_maps,
-            delineations=delineations,
+            gs_pred_segs=gs_pred_segs,
             errors=errors,
             mean_abs_err=mean_abs_err,
             mean_err=mean_err,
@@ -286,6 +289,7 @@ def _save_image_evaluation_results(
     eval_params: EvaluationParameters,
     eval_image: np.ndarray,
     image_name: Path,
+    truth_label_segs: np.ndarray,
     predicted_labels: np.ndarray,
     categorical_pred: np.ndarray,
     eval_labels: np.ndarray,
@@ -314,13 +318,13 @@ def _save_image_evaluation_results(
 
     if eval_params.save_params.predicted_labels is True:
         hdf5_file.create_dataset(
-            "non_gs_predicted_labels", data=predicted_labels, dtype="uint8"
+            "non_gs_predicted_segmentation_map", data=predicted_labels, dtype="uint8"
         )
 
         if eval_params.save_params.png_images is True:
             plotting.save_image_plot(
                 predicted_labels,
-                output_dir / Path("non_gs_predicted_labels.png"),
+                output_dir / Path("non_gs_predicted_segmentation_map.png"),
                 cmap=plotting.colors.ListedColormap(
                     plotting.region_colours, N=len(categorical_pred)
                 ),
@@ -340,10 +344,19 @@ def _save_image_evaluation_results(
 
     plotting.save_image_plot(
         np.argmax(eval_labels, axis=2),
-        output_dir / Path("truth_labels.png"),
+        output_dir / Path("truth_segmentation_map.png"),
         cmap=plotting.colors.ListedColormap(
             plotting.region_colours, N=len(categorical_pred)
         ),
+    )
+
+    plotting.save_segmentation_plot(
+        eval_image,
+        cm.gray,
+        output_dir / Path("truth_plot.png"),
+        truth_label_segs,
+        predictions=None,
+        column_range=range(eval_image.shape[1]),
     )
 
     hdf5_file.create_dataset("raw_segs", data=eval_segs, dtype="uint16")
@@ -365,9 +378,9 @@ def _save_graph_based_evaluation_results(
     eval_params: EvaluationParameters,
     eval_image: np.ndarray,
     image_name: Path,
-    eval_label_gs: np.ndarray,
-    delineations: np.ndarray,
-    label_seg: np.ndarray,
+    truth_label_segs: np.ndarray,
+    gs_eval_label: np.ndarray,
+    gs_pred_segs: np.ndarray,
     gs_dices: np.ndarray,
     errors: np.ndarray,
     mean_abs_err: np.ndarray,
@@ -377,27 +390,27 @@ def _save_graph_based_evaluation_results(
     graph_time: float,
     output_dir: Path,
 ):
-    num_classes = delineations.shape[0] + 1
+    num_classes = gs_pred_segs.shape[0] + 1
     # Save graph search based prediction results
     hdf5_file = h5py.File(
         output_dir / Path(GS_EVALUATION_RESULTS_FILENAME), "w"
     )
 
     np.savetxt(
-        output_dir / Path("boundaries.csv"),
-        delineations,
+        output_dir / Path("gs_boundaries.csv"),
+        gs_pred_segs,
         delimiter=",",
         fmt="%d",
     )
 
     np.savetxt(
-        output_dir / Path("segmentation_map.csv"),
-        np.transpose(eval_label_gs),
+        output_dir / Path("gs_segmentation_map.csv"),
+        gs_eval_label,
         fmt="%d",
         delimiter=",",
     )
 
-    hdf5_file.create_dataset("delineations", data=delineations, dtype="uint16")
+    hdf5_file.create_dataset("gs_pred_segs", data=gs_pred_segs, dtype="uint16")
     hdf5_file.create_dataset("errors", data=errors, dtype="float64")
     hdf5_file.create_dataset(
         "mean_abs_err", data=mean_abs_err, dtype="float64"
@@ -409,12 +422,12 @@ def _save_graph_based_evaluation_results(
         "gs_dices", data=np.squeeze(gs_dices), dtype="float64"
     )
     hdf5_file.create_dataset(
-        "gs_predicted_labels", data=eval_label_gs, dtype="uint8"
+        "gs_predicted_labels", data=gs_eval_label, dtype="uint8"
     )
 
     plotting.save_image_plot(
-        eval_label_gs,
-        output_dir / Path("gs_predicted_labels.png"),
+        gs_eval_label,
+        output_dir / Path("gs_predicted_segmentation_map.png"),
         cmap=plotting.colors.ListedColormap(
             plotting.region_colours, N=num_classes
         ),
@@ -423,28 +436,19 @@ def _save_graph_based_evaluation_results(
     plotting.save_segmentation_plot(
         eval_image,
         cm.gray,
-        output_dir / Path("gs_truth_pred_overlay_plot.png"),
-        label_seg,
-        delineations,
-        column_range=range(eval_image.shape[0]),
+        output_dir / Path("gs_pred_and_truth_overlay_plot.png"),
+        truth_label_segs,
+        gs_pred_segs,
+        column_range=range(eval_image.shape[1]),
     )
 
     plotting.save_segmentation_plot(
         eval_image,
         cm.gray,
-        output_dir / Path("truth_plot.png"),
-        label_seg,
+        output_dir / Path("gs_predicted_boundaries_ovelay_plot.png"),
+        gs_pred_segs,
         predictions=None,
-        column_range=range(eval_image.shape[0]),
-    )
-
-    plotting.save_segmentation_plot(
-        eval_image,
-        cm.gray,
-        output_dir / Path("truth_boundaries_ovelay_plot.png"),
-        delineations,
-        predictions=None,
-        column_range=range(eval_image.shape[0]),
+        column_range=range(eval_image.shape[1]),
     )
 
     hdf5_file.attrs["model_filename"] = np.array(
