@@ -176,7 +176,9 @@ def evaluate_model(
         print("Running graph search, segmenting boundary maps...")
         eval_image_t = np.transpose(eval_image, axes=[1, 0, 2])
         boundary_maps_t = np.transpose(boundary_maps, axes=[0, 2, 1])
-        graph_structure = graph_search.create_graph_structure(eval_image_t.shape)
+        graph_structure = graph_search.create_graph_structure(
+            eval_image_t.shape
+        )
 
         start_graph_time = time.time()
 
@@ -318,7 +320,9 @@ def _save_image_evaluation_results(
 
     if eval_params.save_params.predicted_labels is True:
         hdf5_file.create_dataset(
-            "non_gs_predicted_segmentation_map", data=predicted_labels, dtype="uint8"
+            "non_gs_predicted_segmentation_map",
+            data=predicted_labels,
+            dtype="uint8",
         )
 
         if eval_params.save_params.png_images is True:
