@@ -69,7 +69,7 @@ class TrainingParams:
         ):
             raise ValueError(
                 "Either 'model_architecture' or 'initial_model' "
-                "need to be provided."
+                "need to be provided in the `config.json`."
             )
         self.model_architecture = model_architecture
         self.model_hyperparameters = model_hyperparameters
