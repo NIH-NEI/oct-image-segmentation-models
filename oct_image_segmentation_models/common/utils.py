@@ -35,10 +35,12 @@ def load_model(
     if mlflow_tracking_uri:
         mlflow.set_tracking_uri(mlflow_tracking_uri)
         try:
-            loaded_model = mlflow.keras.load_model(
+            loaded_model = mlflow.tensorflow.load_model(
                 str(model_path),
-                custom_objects=custom_objects,
-                compile=False,
+                keras_model_kwargs={
+                    "custom_objects": custom_objects,
+                    "compile": False,
+                },
             )
         except MlflowException as exc:
             if exc.get_http_status_code() == 401:

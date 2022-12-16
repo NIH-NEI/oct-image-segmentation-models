@@ -146,7 +146,7 @@ def train_model(
     mlflow_params: MLflowParameters = None,
 ):
     if mlflow_params:
-        mlflow.keras.autolog(save_format="h5")
+        mlflow.tensorflow.autolog(keras_model_kwargs={"save_format": "h5"})
         if mlflow_params.username:
             os.environ["MLFLOW_TRACKING_USERNAME"] = mlflow_params.username
 
