@@ -3,13 +3,13 @@ from __future__ import annotations
 import os
 
 import h5py
-import logging as log
 from matplotlib import cm
 import numpy as np
 from pathlib import Path
-from typeguard import typechecked
 from tensorflow.keras.utils import to_categorical
 import time
+from typeguard import typechecked
+from typing import Union
 
 from oct_image_segmentation_models.min_path_processing import utils
 from oct_image_segmentation_models.evaluation.evaluation_parameters import (
@@ -38,12 +38,12 @@ class EvaluationOutput:
         predicted_labels: np.ndarray,
         categorical_pred: np.ndarray,
         boundary_maps: np.ndarray,
-        gs_pred_segs: np.ndarray,
-        errors: np.ndarray,
-        mean_abs_err: np.ndarray,
-        mean_err: np.ndarray,
-        abs_err_sd: np.ndarray,
-        err_sd: np.ndarray,
+        gs_pred_segs: Union[np.ndarray, None],
+        errors: Union[np.ndarray, None],
+        mean_abs_err: Union[np.ndarray, None],
+        mean_err: Union[np.ndarray, None],
+        abs_err_sd: Union[np.ndarray, None],
+        err_sd: Union[np.ndarray, None],
     ) -> None:
         self.image = image
         self.image_name = image_name
@@ -106,7 +106,7 @@ def evaluate_model(
             + ")..."
         )
 
-        log.info("Running network predictions...")
+        print("Running network predictions...")
 
         start_predict_time = time.time()
         predicted_probs = eval_params.loaded_model.predict(
@@ -120,7 +120,7 @@ def evaluate_model(
 
         predict_time = end_predict_time - start_predict_time
 
-        print("Converting predictions to boundary maps...")
+        print("Completed running network predictions...")
 
         # convert predictions to usable boundary probability maps
         """
@@ -150,9 +150,11 @@ def evaluate_model(
             bg_csi=False,
         )
 
-        dices = _calc_dice(
-            categorical_pred, np.expand_dims(eval_label, axis=0)
-        )
+        eval_label_t = np.expand_dims(
+            np.transpose(eval_label, axes=(2, 0, 1)),
+            axis=0,
+        )  # Class should be in the 2nd dimension.
+        dices = _soft_dice(eval_label_t, categorical_pred)
 
         predicted_labels = np.squeeze(predicted_labels)
         categorical_pred = np.squeeze(categorical_pred)
@@ -173,83 +175,99 @@ def evaluate_model(
             eval_image_output_dir,
         )
 
-        print("Running graph search, segmenting boundary maps...")
-        eval_image_t = np.transpose(eval_image, axes=[1, 0, 2])
-        boundary_maps_t = np.transpose(boundary_maps, axes=[0, 2, 1])
-        graph_structure = graph_search.create_graph_structure(
-            eval_image_t.shape
-        )
+        if eval_params.graph_search:
+            print("Running graph search, segmenting boundary maps...")
+            eval_image_t = np.transpose(eval_image, axes=[1, 0, 2])
+            boundary_maps_t = np.transpose(boundary_maps, axes=[0, 2, 1])
+            graph_structure = graph_search.create_graph_structure(
+                eval_image_t.shape
+            )
 
-        start_graph_time = time.time()
+            start_graph_time = time.time()
 
-        """
-        gs_pred_segs: A matrix of shape (# of classes (layers) - 1,
-        imgage_width) where gs_pred_segs[i, col] specifies the row
-        (y-dimension) of the ith layer
+            """
+            gs_pred_segs: A matrix of shape (# of classes (layers) - 1,
+            imgage_width) where gs_pred_segs[i, col] specifies the row
+            (y-dimension) of the ith layer
 
-        errors: A matrix of shape (# of classes (layers) - 1, imgage_width)
-        where error[i, col] specifies the pixel difference between delineation
-        (i.e. prediction) and the true label (i.e. eval_seg)
+            errors: A matrix of shape (# of classes (layers) - 1, imgage_width)
+            where error[i, col] specifies the pixel difference between
+            delineation (i.e. prediction) and the true label (i.e. eval_seg)
 
-        The third element in the tuple (originally named 'trim_maps'): A matrix
-        of shape (# of classes (layers) - 1, imgage_width, image_height). It is
-        the normalized version (0 to 1) of the 'boundary_maps' input.
-        """
-        gs_pred_segs, errors, _ = graph_search.segment_maps(
-            boundary_maps_t,
-            eval_seg,
-            graph_structure,
-        )
+            The third element in the tuple (originally named 'trim_maps'): A
+            matrix of shape (# of classes (layers) - 1, imgage_width,
+            image_height). It is the normalized version (0 to 1) of the
+            'boundary_maps' input.
+            """
+            gs_pred_segs, errors, _ = graph_search.segment_maps(
+                boundary_maps_t,
+                eval_seg,
+                graph_structure,
+            )
 
-        reconstructed_maps = datacon.create_area_mask(
-            eval_image_t.shape, gs_pred_segs
-        )
-        reconstructed_maps = to_categorical(
-            reconstructed_maps, num_classes=eval_params.num_classes
-        )
-        reconstructed_maps = np.expand_dims(reconstructed_maps, axis=0)
+            reconstructed_maps = datacon.create_area_mask(
+                eval_image_t.shape, gs_pred_segs
+            )
+            reconstructed_maps = to_categorical(
+                reconstructed_maps, num_classes=eval_params.num_classes
+            )
+            reconstructed_maps = np.expand_dims(reconstructed_maps, axis=0)
 
-        [gs_eval_label, reconstructed_maps] = common_utils.perform_argmax(
-            reconstructed_maps
-        )
+            [gs_eval_label, reconstructed_maps] = common_utils.perform_argmax(
+                reconstructed_maps
+            )
 
-        gs_dices = _calc_dice(
-            reconstructed_maps,
-            np.expand_dims(np.transpose(eval_label, axes=[1, 0, 2]), axis=0),
-        )
+            gs_dices = _soft_dice(
+                np.expand_dims(
+                    # We transpose width and height (0, 1) and we bring the
+                    # class dimension to the front since it needs to be in
+                    # the 2nd dimension for _soft_dice.
+                    np.transpose(eval_label, axes=[2, 1, 0]),
+                    axis=0,
+                ),
+                reconstructed_maps,
+            )
 
-        gs_eval_label = np.transpose(np.squeeze(gs_eval_label))
+            gs_eval_label = np.transpose(np.squeeze(gs_eval_label))
 
-        end_graph_time = time.time()
-        graph_time = end_graph_time - start_graph_time
+            end_graph_time = time.time()
+            graph_time = end_graph_time - start_graph_time
 
-        """
-        Vectors of length '# of classes (layers) - 1' with pixel difference
-        (error) statistics.
-        """
-        (
-            mean_abs_err,
-            mean_err,
-            abs_err_sd,
-            err_sd,
-        ) = graph_search.calculate_overall_errors(errors)
+            """
+            Vectors of length '# of classes (layers) - 1' with pixel difference
+            (error) statistics.
+            """
+            (
+                mean_abs_err,
+                mean_err,
+                abs_err_sd,
+                err_sd,
+            ) = graph_search.calculate_overall_errors(errors)
 
-        _save_graph_based_evaluation_results(
-            eval_params,
-            eval_image,
-            eval_image_name,
-            eval_seg,
-            gs_eval_label,
-            gs_pred_segs,
-            gs_dices,
-            errors,
-            mean_abs_err,
-            mean_err,
-            abs_err_sd,
-            err_sd,
-            graph_time,
-            eval_image_output_dir,
-        )
+            _save_graph_based_evaluation_results(
+                eval_params,
+                eval_image,
+                eval_image_name,
+                eval_seg,
+                gs_eval_label,
+                gs_pred_segs,
+                gs_dices,
+                errors,
+                mean_abs_err,
+                mean_err,
+                abs_err_sd,
+                err_sd,
+                graph_time,
+                eval_image_output_dir,
+            )
+        else:
+            print("Skipping graph search...")
+            gs_pred_segs = None
+            errors = None
+            mean_abs_err = None
+            mean_err = None
+            abs_err_sd = None
+            err_sd = None
 
         eval_output = EvaluationOutput(
             image=eval_image,
@@ -269,9 +287,6 @@ def evaluate_model(
 
         eval_outputs.append(eval_output)
 
-        _print_error_summary(
-            mean_abs_err, mean_err, abs_err_sd, err_sd, eval_image_name
-        )
         print(
             "DONE image number: "
             + str(ind + 1)
@@ -281,7 +296,11 @@ def evaluate_model(
         )
         print("______________________________")
 
-    _calc_overall_dataset_errors(eval_image_names, eval_params.save_foldername)
+    _calc_overall_dataset_errors(
+        eval_image_names,
+        eval_params.graph_search,
+        eval_params.save_foldername,
+    )
 
     return eval_outputs
 
@@ -486,47 +505,7 @@ def save_eval_config_file(eval_params: EvaluationParameters):
     config_file.close()
 
 
-@typechecked
-def _print_error_summary(
-    mean_abs_err: np.ndarray,
-    mean_err: np.ndarray,
-    abs_err_sd: np.ndarray,
-    err_sd: np.ndarray,
-    cur_image_name: Path,
-):
-    num_boundaries = mean_abs_err.shape[0]
-
-    # overall errors: list of four numpy arrays: [mean abs error,
-    # mean error, abs error sd, error sd]
-    print("\n")
-    print("Error summary for image: " + str(cur_image_name))
-    print("_" * 92)
-    print(
-        "BOUNDARY".center(30)
-        + "|"
-        + "Mean absolute error [px]".center(30)
-        + "|"
-        + "Mean error [px]".center(30)
-    )
-    print("_" * 92)
-    for boundary_ind in range(num_boundaries):
-        mae = mean_abs_err[boundary_ind]
-        me = mean_err[boundary_ind]
-        ae_sd = abs_err_sd[boundary_ind]
-        e_sd = err_sd[boundary_ind]
-        first_col_str = "{:.2f} ({:.2f})".format(mae, ae_sd)
-        second_col_str = "{:.2f} ({:.2f})".format(me, e_sd)
-        print(
-            f"boundary_{boundary_ind}".center(30)
-            + "|"
-            + first_col_str.center(30)
-            + "|"
-            + second_col_str.center(30)
-        )
-    print("\n")
-
-
-def _soft_dice_numpy(y_pred, y_true, eps=1e-7):
+def _soft_dice(y_true, y_pred, eps=1e-5):
     """
     c is number of classes
     :param y_pred: b x c x X x Y( x Z...) network output, must sum to 1 over
@@ -535,49 +514,22 @@ def _soft_dice_numpy(y_pred, y_true, eps=1e-7):
     :param eps:
     :return:
     """
-
     axes = tuple(range(2, len(y_pred.shape)))
     intersect = np.sum(y_pred * y_true, axis=axes)
     denom = np.sum(y_pred + y_true, axis=axes)
 
-    for i in range(intersect.shape[1]):
-        # if there is no region for a class to predict, there shouldn't be a
-        #  penalty for correctly predicting empty
-        if intersect[0, i] == 0 and denom[0, i] == 0:
-            # set to 1
-            # intersect[0, i] = 0.5
-            # denom[0, i] = 1 - eps
-
-            # OR
-
-            # set to NaN
-            intersect[0, i] = np.nan
-
-    class_dices = 2.0 * intersect / (denom + eps)
+    class_dices = ((2.0 * intersect) + eps) / (denom + eps)
 
     intersect_total = np.sum(np.sum(y_pred * y_true, axis=axes))
     denom_total = np.sum(np.sum(y_pred + y_true, axis=axes))
-
-    overall_dice = np.array(
-        [np.array([2.0 * intersect_total / (denom_total + eps)])]
-    )
-
+    overall_dice = ((2.0 * intersect_total) + eps) / (denom_total + eps)
+    overall_dice = np.expand_dims(overall_dice, axis=(0, 1))
     return np.concatenate((class_dices, overall_dice), axis=1)
 
 
 @typechecked
-def _calc_dice(predictions: np.ndarray, labels: np.ndarray):
-    dices = _soft_dice_numpy(
-        predictions,
-        np.transpose(labels, axes=(0, 3, 1, 2)),
-    )
-
-    return dices
-
-
-@typechecked
 def _calc_overall_dataset_errors(
-    eval_image_names: list[Path], output_dir: Path
+    eval_image_names: list[Path], graph_search: bool, output_dir: Path
 ):
     """
     'errors' shape: (# of images, number of boundaries, image width)
@@ -588,21 +540,28 @@ def _calc_overall_dataset_errors(
     dices = None
     dices_recon = None
 
-    dir_list = os.listdir(output_dir)
-    # Loop through each evaluated image
+    # Loop through each evaluated image (non graph search)
+    dir_list = [path for path in output_dir.iterdir() if path.is_dir()]
     for obj_name in dir_list:
-        if os.path.isdir(output_dir / Path(obj_name)):
-            eval_filename = (
-                output_dir / Path(obj_name) / Path(EVALUATION_RESULTS_FILENAME)
-            )
-            eval_file = h5py.File(eval_filename, "r")
+        eval_filename = (
+            output_dir / Path(obj_name) / Path(EVALUATION_RESULTS_FILENAME)
+        )
+        eval_file = h5py.File(eval_filename, "r")
+
+        file_dices = eval_file["dices"][:]
+        if dices is None:
+            dices = np.expand_dims(file_dices, 0)
+        else:
+            dices = np.concatenate((dices, np.expand_dims(file_dices, 0)), 0)
+
+    if graph_search:
+        for obj_name in dir_list:
             gs_eval_filename = (
                 output_dir
                 / Path(obj_name)
                 / Path(GS_EVALUATION_RESULTS_FILENAME)
             )
             gs_eval_file = h5py.File(gs_eval_filename, "r")
-
             file_errors = gs_eval_file["errors"]
 
             if errors is None:
@@ -610,14 +569,6 @@ def _calc_overall_dataset_errors(
             else:
                 errors = np.concatenate(
                     (errors, np.expand_dims(file_errors, 0)), 0
-                )
-
-            file_dices = eval_file["dices"][:]
-            if dices is None:
-                dices = np.expand_dims(file_dices, 0)
-            else:
-                dices = np.concatenate(
-                    (dices, np.expand_dims(file_dices, 0)), 0
                 )
 
             file_dices_recon = gs_eval_file["gs_dices"][:]
@@ -636,54 +587,6 @@ def _calc_overall_dataset_errors(
 
     save_file["image_names"] = np.array(eval_image_names, dtype="S1000")
 
-    # Boundary Errors
-    mean_abs_errors_cols = np.nanmean(np.abs(errors), axis=0)
-    mean_abs_errors_samples = np.nanmean(np.abs(errors), axis=2)
-    sd_abs_errors_samples = np.nanstd(np.abs(errors), axis=2)
-    mean_abs_errors = np.nanmean(mean_abs_errors_samples, axis=0)
-    sd_abs_errors = np.nanstd(mean_abs_errors_samples, axis=0)
-
-    median_abs_errors = np.nanmedian(mean_abs_errors_samples, axis=0)
-
-    mean_errors_cols = np.nanmean(errors, axis=0)
-    mean_errors_samples = np.nanmean(errors, axis=2)
-    mean_errors = np.nanmean(mean_errors_samples, axis=0)
-    sd_errors = np.nanstd(mean_errors_samples, axis=0)
-
-    median_errors = np.nanmedian(mean_errors_samples, axis=0)
-
-    save_file["mean_abs_errors_cols"] = mean_abs_errors_cols
-    save_file["mean_abs_errors_samples"] = mean_abs_errors_samples
-    save_file["mean_abs_errors"] = mean_abs_errors
-    save_file["sd_abs_errors"] = sd_abs_errors
-    save_file["median_abs_errors"] = median_abs_errors
-    save_file["sd_abs_errors_samples"] = sd_abs_errors_samples
-
-    save_file["mean_errors_cols"] = mean_errors_cols
-    save_file["mean_errors_samples"] = mean_errors_samples
-    save_file["mean_errors"] = mean_errors
-    save_file["sd_errors"] = sd_errors
-    save_file["median_errors"] = median_errors
-
-    save_file["errors"] = errors
-
-    save_textfile.write("Mean abs errors,")
-    save_textfile.write(",".join([f"{e:.7f}" for e in mean_abs_errors]) + "\n")
-
-    save_textfile.write("Mean errors,")
-    save_textfile.write(",".join([f"{e:.7f}" for e in mean_errors]) + "\n")
-
-    save_textfile.write("Median absolute errors,")
-    save_textfile.write(
-        ",".join([f"{e:.7f}" for e in median_abs_errors]) + "\n"
-    )
-
-    save_textfile.write("SD abs errors,")
-    save_textfile.write(",".join([f"{e:.7f}" for e in sd_abs_errors]) + "\n")
-
-    save_textfile.write("SD errors,")
-    save_textfile.write(",".join([f"{e:.7f}" for e in sd_errors]) + "\n")
-
     # Dice
     save_file["dices"] = dices
 
@@ -699,22 +602,77 @@ def _calc_overall_dataset_errors(
     save_textfile.write("SD dices,")
     save_textfile.write(",".join([f"{e:.7f}" for e in sd_dices]) + "\n")
 
-    # Reconstructed Dice Coeff.
-    save_file["dices_recon"] = dices_recon
+    # Boundary Errors
+    if graph_search:
+        mean_abs_errors_cols = np.nanmean(np.abs(errors), axis=0)
+        mean_abs_errors_samples = np.nanmean(np.abs(errors), axis=2)
+        sd_abs_errors_samples = np.nanstd(np.abs(errors), axis=2)
+        mean_abs_errors = np.nanmean(mean_abs_errors_samples, axis=0)
+        sd_abs_errors = np.nanstd(mean_abs_errors_samples, axis=0)
 
-    mean_dices_recon = np.mean(dices_recon, axis=0)
-    sd_dices_recon = np.std(dices_recon, axis=0)
+        median_abs_errors = np.nanmedian(mean_abs_errors_samples, axis=0)
 
-    save_file["mean_dices_recon"] = mean_dices_recon
-    save_file["sd_dices_recon"] = sd_dices_recon
+        mean_errors_cols = np.nanmean(errors, axis=0)
+        mean_errors_samples = np.nanmean(errors, axis=2)
+        mean_errors = np.nanmean(mean_errors_samples, axis=0)
+        sd_errors = np.nanstd(mean_errors_samples, axis=0)
 
-    save_textfile.write("Mean dices recon,")
-    save_textfile.write(
-        ",".join([f"{e:.7f}" for e in mean_dices_recon]) + "\n"
-    )
+        median_errors = np.nanmedian(mean_errors_samples, axis=0)
 
-    save_textfile.write("SD dices recon,")
-    save_textfile.write(",".join([f"{e:.7f}" for e in sd_dices_recon]) + "\n")
+        save_file["mean_abs_errors_cols"] = mean_abs_errors_cols
+        save_file["mean_abs_errors_samples"] = mean_abs_errors_samples
+        save_file["mean_abs_errors"] = mean_abs_errors
+        save_file["sd_abs_errors"] = sd_abs_errors
+        save_file["median_abs_errors"] = median_abs_errors
+        save_file["sd_abs_errors_samples"] = sd_abs_errors_samples
+
+        save_file["mean_errors_cols"] = mean_errors_cols
+        save_file["mean_errors_samples"] = mean_errors_samples
+        save_file["mean_errors"] = mean_errors
+        save_file["sd_errors"] = sd_errors
+        save_file["median_errors"] = median_errors
+
+        save_file["errors"] = errors
+
+        save_textfile.write("Mean abs errors,")
+        save_textfile.write(
+            ",".join([f"{e:.7f}" for e in mean_abs_errors]) + "\n"
+        )
+
+        save_textfile.write("Mean errors,")
+        save_textfile.write(",".join([f"{e:.7f}" for e in mean_errors]) + "\n")
+
+        save_textfile.write("Median absolute errors,")
+        save_textfile.write(
+            ",".join([f"{e:.7f}" for e in median_abs_errors]) + "\n"
+        )
+
+        save_textfile.write("SD abs errors,")
+        save_textfile.write(
+            ",".join([f"{e:.7f}" for e in sd_abs_errors]) + "\n"
+        )
+
+        save_textfile.write("SD errors,")
+        save_textfile.write(",".join([f"{e:.7f}" for e in sd_errors]) + "\n")
+
+        # Reconstructed Dice Coeff.
+        save_file["dices_recon"] = dices_recon
+
+        mean_dices_recon = np.mean(dices_recon, axis=0)
+        sd_dices_recon = np.std(dices_recon, axis=0)
+
+        save_file["mean_dices_recon"] = mean_dices_recon
+        save_file["sd_dices_recon"] = sd_dices_recon
+
+        save_textfile.write("Mean dices recon,")
+        save_textfile.write(
+            ",".join([f"{e:.7f}" for e in mean_dices_recon]) + "\n"
+        )
+
+        save_textfile.write("SD dices recon,")
+        save_textfile.write(
+            ",".join([f"{e:.7f}" for e in sd_dices_recon]) + "\n"
+        )
 
     save_file.close()
     save_textfile.close()

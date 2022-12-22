@@ -43,7 +43,7 @@ class EvaluationParameters:
         test_dataset_path: Path,
         save_foldername: Path,
         save_params: EvaluationSaveParams,
-        transpose=False,
+        graph_search: bool,
         gsgrad=1,
         dice_errors=True,
         binarize=True,
@@ -56,7 +56,6 @@ class EvaluationParameters:
         self.binarize = binarize
 
         self.save_params = save_params
-        self.transpose = transpose
         self.dice_errors = dice_errors
 
         self.bg_ilm = bg_ilm
@@ -70,3 +69,4 @@ class EvaluationParameters:
             mlflow_tracking_uri=mlflow_tracking_uri,
         )
         self.num_classes = self.loaded_model.output.shape[-1]
+        self.graph_search = graph_search
