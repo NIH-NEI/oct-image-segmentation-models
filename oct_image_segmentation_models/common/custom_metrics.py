@@ -1,5 +1,12 @@
+import numpy as np
+from surface_distance import (
+    compute_surface_distances,
+    compute_average_surface_distance,
+    compute_robust_hausdorff,
+)
 import tensorflow as tf
 from tensorflow.keras import backend as K
+from typing import Tuple
 
 
 def _dice_coef(is_y_true_sparse, num_classes):
@@ -17,3 +24,22 @@ def _dice_coef(is_y_true_sparse, num_classes):
 
 
 custom_metric_objects = {"dice_coef": _dice_coef}
+
+
+def average_surface_distance(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    spacing: Tuple[float],
+) -> dict:
+    surface_distances = compute_surface_distances(y_true, y_pred, spacing)
+    return compute_average_surface_distance(surface_distances)
+
+
+def hausdorff_distance(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    spacing: Tuple[float],
+    percent: float,
+) -> float:
+    surface_distances = compute_surface_distances(y_true, y_pred, spacing)
+    return compute_robust_hausdorff(surface_distances, percent)

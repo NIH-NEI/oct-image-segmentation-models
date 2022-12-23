@@ -44,6 +44,7 @@ class EvaluationParameters:
         save_foldername: Path,
         save_params: EvaluationSaveParams,
         graph_search: bool,
+        metrics: list[str],
         gsgrad=1,
         dice_errors=True,
         binarize=True,
@@ -56,12 +57,13 @@ class EvaluationParameters:
         self.binarize = binarize
 
         self.save_params = save_params
+        self.graph_search = graph_search
+        self.metrics = metrics
+        self.gsgrad = gsgrad
         self.dice_errors = dice_errors
 
         self.bg_ilm = bg_ilm
         self.bg_csi = bg_csi
-
-        self.gsgrad = gsgrad
 
         self.save_foldername = save_foldername
         self.loaded_model = utils.load_model(
@@ -69,4 +71,3 @@ class EvaluationParameters:
             mlflow_tracking_uri=mlflow_tracking_uri,
         )
         self.num_classes = self.loaded_model.output.shape[-1]
-        self.graph_search = graph_search

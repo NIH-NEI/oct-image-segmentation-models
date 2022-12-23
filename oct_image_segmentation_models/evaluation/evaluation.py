@@ -12,10 +12,16 @@ from typeguard import typechecked
 from typing import Union
 
 from oct_image_segmentation_models.min_path_processing import utils
+from oct_image_segmentation_models.evaluation import (
+    DICE_METRIC,
+    AVERAGE_SURFACE_DISTANCE_METRIC,
+    HAUSDORFF_DISTANCE_METRIC,
+)
 from oct_image_segmentation_models.evaluation.evaluation_parameters import (
     EvaluationParameters,
 )
 from oct_image_segmentation_models.common import (
+    custom_metrics,
     dataset_construction as datacon,
     dataset_loader as dl,
     plotting,
@@ -124,11 +130,11 @@ def evaluate_model(
 
         # convert predictions to usable boundary probability maps
         """
-        predicted_labels: A matrix of shape (1, image_width, image_height) that
+        predicted_labels: A matrix of shape (1, image_height, image_width) that
         contains the predicted classes numbered from 0 to num_classes - 1.
 
-        categorical_pred: A matrix of shape (1, num_classes, image_width,
-        image_height) that contains:
+        categorical_pred: A matrix of shape (1, num_classes, image_height,
+        image_width) that contains:
             - If 'bin' == True: 1 on pixels that belong the class and 0
             otherwise.
             - If 'bin' == False: Prediction probabilities for each pixel per
@@ -140,7 +146,7 @@ def evaluate_model(
 
         """
         boundary_maps: A matrix of shape (# of classes (layers) - 1,
-        imgage_width, image_height). Each "image" contains the delineation of
+        imgage_height, image_width). Each "image" contains the delineation of
         the ith layer as a line marked with 255. The rest of the elements are
         0.
         """
@@ -154,7 +160,62 @@ def evaluate_model(
             np.transpose(eval_label, axes=(2, 0, 1)),
             axis=0,
         )  # Class should be in the 2nd dimension.
-        dices = _soft_dice(eval_label_t, categorical_pred)
+
+        if DICE_METRIC in eval_params.metrics:
+            dices = _soft_dice(eval_label_t, categorical_pred)
+
+        if AVERAGE_SURFACE_DISTANCE_METRIC in eval_params.metrics:
+            average_surface_distances = []
+            average_surface_distances_gt_to_pred = []
+            average_surface_distances_pred_to_gt = []
+
+            # Skip background class
+            for class_idx in range(1, eval_params.num_classes):
+                class_eval_label = eval_label[:, :, class_idx].astype(bool)
+                class_catgorical_pred = categorical_pred[
+                    0, class_idx, :, :
+                ].astype(bool)
+                (
+                    average_distance_gt_to_pred,
+                    average_distance_pred_to_gt,
+                ) = custom_metrics.average_surface_distance(
+                    class_eval_label,
+                    class_catgorical_pred,
+                    spacing=(0.01111111, 0.01111111),
+                )
+                average_surface_distances_gt_to_pred.append(
+                    average_distance_gt_to_pred
+                )
+                average_surface_distances_pred_to_gt.append(
+                    average_distance_pred_to_gt
+                )
+                average_surface_distances.append(
+                    (average_distance_gt_to_pred + average_distance_pred_to_gt)
+                    / 2.0
+                )
+        else:
+            average_surface_distances = None
+            average_surface_distances_gt_to_pred = None
+            average_surface_distances_pred_to_gt = None
+
+        if HAUSDORFF_DISTANCE_METRIC in eval_params.metrics:
+            hausdorff_distances = []
+            # Skip background class
+            for class_idx in range(1, eval_params.num_classes):
+                class_eval_label = eval_label[:, :, class_idx].astype(bool)
+                class_catgorical_pred = categorical_pred[
+                    0, class_idx, :, :
+                ].astype(bool)
+                hausdorff_distances.append(
+                    custom_metrics.hausdorff_distance(
+                        class_eval_label,
+                        class_catgorical_pred,
+                        spacing=(0.01111111, 0.01111111),
+                        percent=95,
+                    )
+                )
+        else:
+            hausdorff_distances = None
 
         predicted_labels = np.squeeze(predicted_labels)
         categorical_pred = np.squeeze(categorical_pred)
@@ -171,6 +232,10 @@ def evaluate_model(
             eval_label,
             eval_seg,
             dices,
+            np.array(average_surface_distances),
+            np.array(average_surface_distances_gt_to_pred),
+            np.array(average_surface_distances_pred_to_gt),
+            np.array(hausdorff_distances),
             predict_time,
             eval_image_output_dir,
         )
@@ -297,9 +362,8 @@ def evaluate_model(
         print("______________________________")
 
     _calc_overall_dataset_errors(
+        eval_params,
         eval_image_names,
-        eval_params.graph_search,
-        eval_params.save_foldername,
     )
 
     return eval_outputs
@@ -315,7 +379,11 @@ def _save_image_evaluation_results(
     categorical_pred: np.ndarray,
     eval_labels: np.ndarray,
     eval_segs: np.ndarray,
-    dices: np.ndarray,
+    dices: Union[np.ndarray, None],
+    average_surface_distances: Union[np.ndarray, None],
+    average_surface_distances_gt_to_pred: Union[np.ndarray, None],
+    average_surface_distances_pred_to_gt: Union[np.ndarray, None],
+    hausdorff_distances: Union[np.ndarray, None],
     predict_time: float,
     output_dir: Path,
 ):
@@ -383,7 +451,37 @@ def _save_image_evaluation_results(
     )
 
     hdf5_file.create_dataset("raw_segs", data=eval_segs, dtype="uint16")
-    hdf5_file.create_dataset("dices", data=np.squeeze(dices), dtype="float64")
+
+    if dices is not None:
+        hdf5_file.create_dataset(
+            "dices", data=np.squeeze(dices), dtype="float64"
+        )
+
+    if average_surface_distances is not None:
+        hdf5_file.create_dataset(
+            "average_surface_distances",
+            data=average_surface_distances,
+            dtype="float64",
+        )
+
+    if average_surface_distances_gt_to_pred is not None:
+        hdf5_file.create_dataset(
+            "average_surface_distances_gt_to_pred",
+            data=average_surface_distances_gt_to_pred,
+            dtype="float64",
+        )
+
+    if average_surface_distances_pred_to_gt is not None:
+        hdf5_file.create_dataset(
+            "average_surface_distances_pred_to_gt",
+            data=average_surface_distances_pred_to_gt,
+            dtype="float64",
+        )
+
+    if hausdorff_distances is not None:
+        hdf5_file.create_dataset(
+            "hausdorff_distances", data=hausdorff_distances, dtype="float64"
+        )
 
     hdf5_file.attrs["model_filename"] = np.array(
         eval_params.model_path, dtype="S1000"
@@ -529,30 +627,75 @@ def _soft_dice(y_true, y_pred, eps=1e-5):
 
 @typechecked
 def _calc_overall_dataset_errors(
-    eval_image_names: list[Path], graph_search: bool, output_dir: Path
+    eval_params: EvaluationParameters, eval_image_names: list[Path]
 ):
     """
     'errors' shape: (# of images, number of boundaries, image width)
     'dices' shape: (# of images, number of boundaries + 2 == number of classes
     + 1)
     """
+    output_dir = eval_params.save_foldername
+    graph_search = eval_params.graph_search
+    metrics = eval_params.metrics
+
     errors = None
     dices = None
     dices_recon = None
+    average_surface_distances = None
+    average_surface_distances_gt_to_pred = None
+    average_surface_distances_pred_to_gt = None
+    hausdorff_distances = None
 
     # Loop through each evaluated image (non graph search)
-    dir_list = [path for path in output_dir.iterdir() if path.is_dir()]
+    dir_list = [
+        Path(output_dir) / Path(f"image_{i}")
+        for i in range(len(eval_image_names))
+    ]
     for obj_name in dir_list:
         eval_filename = (
             output_dir / Path(obj_name) / Path(EVALUATION_RESULTS_FILENAME)
         )
         eval_file = h5py.File(eval_filename, "r")
 
-        file_dices = eval_file["dices"][:]
-        if dices is None:
-            dices = np.expand_dims(file_dices, 0)
-        else:
-            dices = np.concatenate((dices, np.expand_dims(file_dices, 0)), 0)
+        @typechecked
+        def concat_metric_from_hdf5(
+            hdf5_file: h5py.File,
+            metric_name: str,
+            metric: Union[np.ndarray, None],
+        ) -> np.ndarray:
+            file_metric = hdf5_file[f"{metric_name}"][:]
+            if metric is None:
+                metric = np.expand_dims(file_metric, 0)
+            else:
+                metric = np.concatenate(
+                    (metric, np.expand_dims(file_metric, 0)), 0
+                )
+            return metric
+
+        if DICE_METRIC in metrics:
+            dices = concat_metric_from_hdf5(eval_file, "dices", dices)
+
+        if AVERAGE_SURFACE_DISTANCE_METRIC in metrics:
+            average_surface_distances = concat_metric_from_hdf5(
+                eval_file,
+                "average_surface_distances",
+                average_surface_distances,
+            )
+            average_surface_distances_gt_to_pred = concat_metric_from_hdf5(
+                eval_file,
+                "average_surface_distances_gt_to_pred",
+                average_surface_distances_gt_to_pred,
+            )
+            average_surface_distances_pred_to_gt = concat_metric_from_hdf5(
+                eval_file,
+                "average_surface_distances_pred_to_gt",
+                average_surface_distances_pred_to_gt,
+            )
+
+        if HAUSDORFF_DISTANCE_METRIC in metrics:
+            hausdorff_distances = concat_metric_from_hdf5(
+                eval_file, "hausdorff_distances", hausdorff_distances
+            )
 
     if graph_search:
         for obj_name in dir_list:
@@ -587,20 +730,39 @@ def _calc_overall_dataset_errors(
 
     save_file["image_names"] = np.array(eval_image_names, dtype="S1000")
 
+    @typechecked
+    def save_metric(metric_name: str, metric: np.ndarray):
+        save_file[metric_name] = metric
+
+        mean_metric = np.nanmean(metric, axis=0)
+        sd_metric = np.nanstd(metric, axis=0)
+
+        save_file[f"mean_{metric_name}"] = mean_metric
+        save_file[f"sd_{metric_name}"] = sd_metric
+
+        save_textfile.write(f"Mean {metric_name},")
+        save_textfile.write(",".join([f"{e:.7f}" for e in mean_metric]) + "\n")
+
+        save_textfile.write(f"SD {metric_name},")
+        save_textfile.write(",".join([f"{e:.7f}" for e in sd_metric]) + "\n")
+
     # Dice
-    save_file["dices"] = dices
+    if DICE_METRIC in metrics:
+        save_metric("dices", dices)
 
-    mean_dices = np.nanmean(dices, axis=0)
-    sd_dices = np.nanstd(dices, axis=0)
+    if AVERAGE_SURFACE_DISTANCE_METRIC in metrics:
+        save_metric("average_surface_distances", average_surface_distances)
+        save_metric(
+            "average_surface_distances_gt_to_pred",
+            average_surface_distances_gt_to_pred,
+        )
+        save_metric(
+            "average_surface_distances_pred_to_gt",
+            average_surface_distances_pred_to_gt,
+        )
 
-    save_file["mean_dices"] = mean_dices
-    save_file["sd_dices"] = sd_dices
-
-    save_textfile.write("Mean dices,")
-    save_textfile.write(",".join([f"{e:.7f}" for e in mean_dices]) + "\n")
-
-    save_textfile.write("SD dices,")
-    save_textfile.write(",".join([f"{e:.7f}" for e in sd_dices]) + "\n")
+    if HAUSDORFF_DISTANCE_METRIC in metrics:
+        save_metric("hausdorff_distances", hausdorff_distances)
 
     # Boundary Errors
     if graph_search:
