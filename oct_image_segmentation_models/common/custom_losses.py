@@ -47,9 +47,8 @@ def focal_loss(
 
 
 @typechecked
-def dice_loss(*, is_y_true_sparse: bool, num_classes: int, **kwargs):
-    def _dice_loss(y_true, y_pred):
-        smooth = 1.0
+def dice_loss_micro(*, is_y_true_sparse: bool, num_classes: int, **kwargs):
+    def _dice_loss_micro(y_true, y_pred, smooth=1e-05):
         if is_y_true_sparse:
             y_true = tf.one_hot(tf.cast(y_true, dtype=tf.int32), num_classes)
         y_true_f = K.flatten(y_true)
@@ -60,12 +59,31 @@ def dice_loss(*, is_y_true_sparse: bool, num_classes: int, **kwargs):
         )
         return 1.0 - score
 
-    return _dice_loss
+    return _dice_loss_micro
+
+
+@typechecked
+def dice_loss_macro(*, is_y_true_sparse: bool, num_classes: int, **kwargs):
+    def _dice_loss_macro(y_true, y_pred, smooth=1e-05):
+        if is_y_true_sparse:
+            y_true = tf.one_hot(tf.cast(y_true, dtype=tf.int32), num_classes)
+        reduce_axis = range(1, len(y_pred.shape) - 1)
+        intersection = K.sum(y_true * y_pred, axis=reduce_axis)
+        y_true_sum = K.sum(y_true, axis=reduce_axis)
+        y_pred_sum = K.sum(y_pred, axis=reduce_axis)
+
+        denominator = y_true_sum + y_pred_sum
+        score = (2.0 * intersection + smooth) / (denominator + smooth)
+        return 1.0 - K.mean(score)
+
+    return _dice_loss_macro
 
 
 @typechecked
 def bce_dice_loss(*, num_classes: int, **kwargs):
-    dice_loss_fn = dice_loss(is_y_true_sparse=False, num_classes=num_classes)
+    dice_loss_fn = dice_loss_micro(
+        is_y_true_sparse=False, num_classes=num_classes
+    )
 
     def _bce_dice_loss(y_true, y_pred):
         return binary_crossentropy(y_true, y_pred) + dice_loss_fn(
@@ -86,6 +104,7 @@ class SparseCategoricalFocalDiceLoss(fl.SparseCategoricalFocalLoss):
         self,
         num_classes: int,
         focal_loss_weight: float,
+        dice_macro: bool,
         gamma,
         class_weight: Optional[Any] = None,
         from_logits: bool = False,
@@ -98,10 +117,16 @@ class SparseCategoricalFocalDiceLoss(fl.SparseCategoricalFocalLoss):
         )
         self.num_classes = num_classes
         self.focal_loss_weight = focal_loss_weight
-        self.dice_loss_fn = dice_loss(
-            is_y_true_sparse=True,
-            num_classes=num_classes,
-        )
+        if dice_macro:
+            self.dice_loss_fn = dice_loss_macro(
+                is_y_true_sparse=True,
+                num_classes=num_classes,
+            )
+        else:
+            self.dice_loss_fn = dice_loss_micro(
+                is_y_true_sparse=True,
+                num_classes=num_classes,
+            )
 
     def get_config(self):
         """Returns the config of the layer.
@@ -154,7 +179,7 @@ def focal_dice_loss(
 
 def bce_logdice_loss(y_true, y_pred):
     return binary_crossentropy(y_true, y_pred) - K.log(
-        1.0 - dice_loss(y_true, y_pred)
+        1.0 - dice_loss_micro(y_true, y_pred)
     )
 
 
@@ -197,7 +222,7 @@ def weighted_bce_dice_loss(y_true, y_pred):
     weight = 5.0 * K.exp(-5.0 * K.abs(averaged_mask - 0.5))
     w1 = K.sum(weight)
     weight *= w0 / w1
-    loss = weighted_bce_loss(y_true, y_pred, weight) + dice_loss(
+    loss = weighted_bce_loss(y_true, y_pred, weight) + dice_loss_micro(
         y_true, y_pred
     )
     return loss
@@ -208,8 +233,12 @@ custom_loss_objects = {
         "function": bce_dice_loss,
         "takes_sparse": False,
     },
-    "dice_loss": {
-        "function": dice_loss,
+    "dice_loss_micro": {
+        "function": dice_loss_micro,
+        "takes_sparse": False,
+    },
+    "dice_loss_macro": {
+        "function": dice_loss_macro,
         "takes_sparse": False,
     },
     "focal_loss": {
