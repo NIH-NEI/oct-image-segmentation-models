@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import logging as log
 from pathlib import Path
 from typeguard import typechecked
 
-from oct_image_segmentation_models.common import utils
+from oct_image_segmentation_models.common import EVALUATION_METRICS, utils
 
 
 @typechecked
@@ -58,6 +59,13 @@ class EvaluationParameters:
 
         self.save_params = save_params
         self.graph_search = graph_search
+        if not set(metrics).issubset(EVALUATION_METRICS):
+            log.error(
+                "Some of the provided metrics are invalid. "
+                f"Provided metrics: {metrics}."
+            )
+            exit(1)
+
         self.metrics = metrics
         self.gsgrad = gsgrad
         self.dice_errors = dice_errors

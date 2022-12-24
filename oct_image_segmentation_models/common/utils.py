@@ -28,7 +28,7 @@ def load_model(
 ) -> keras.engine.functional.Functional:
     custom_objects = dict(
         list(custom_losses.custom_loss_objects.items())
-        + list(custom_metrics.custom_metric_objects.items())
+        + list(custom_metrics.training_monitor_metric_objects.items())
     )
     mlflow_tracking_uri = kwargs.pop("mlflow_tracking_uri", {})
 

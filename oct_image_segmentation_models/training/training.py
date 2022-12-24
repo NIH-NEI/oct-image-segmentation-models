@@ -221,7 +221,9 @@ def train_model(
             num_classes=num_classes, is_y_true_sparse=sparse_labels
         )
 
-    metric = custom_metrics.custom_metric_objects.get(training_params.metric)
+    metric = custom_metrics.training_monitor_metric_objects.get(
+        training_params.metric
+    )
     if metric is None:
         log.error(f"Metric '{training_params.metric}' not found. Exiting...")
         exit(1)
@@ -325,7 +327,7 @@ def train_model(
 
     if early_stopping:
         early_stopping_callback = tf.keras.callbacks.EarlyStopping(
-            monitor="val_dice_coef",
+            monitor=f"val_{training_params.metric}",
             mode="max",
             patience=patience,
             restore_best_weights=restore_best_weights,

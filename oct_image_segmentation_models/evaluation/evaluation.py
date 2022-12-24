@@ -12,11 +12,6 @@ from typeguard import typechecked
 from typing import Union
 
 from oct_image_segmentation_models.min_path_processing import utils
-from oct_image_segmentation_models.evaluation import (
-    DICE_METRIC,
-    AVERAGE_SURFACE_DISTANCE_METRIC,
-    HAUSDORFF_DISTANCE_METRIC,
-)
 from oct_image_segmentation_models.evaluation.evaluation_parameters import (
     EvaluationParameters,
 )
@@ -26,11 +21,18 @@ from oct_image_segmentation_models.common import (
     dataset_loader as dl,
     plotting,
     utils as common_utils,
+    EVALUATION_METRIC_DICE_CLASSES,
+    EVALUATION_METRIC_DICE_MACRO,
+    EVALUATION_METRIC_DICE_MICRO,
+    EVALUATION_METRIC_AVERAGE_SURFACE_DISTANCE,
+    EVALUATION_METRIC_HAUSDORFF_DISTANCE,
 )
 from oct_image_segmentation_models.min_path_processing import graph_search
 
 EVALUATION_RESULTS_FILENAME = "evaluation_results.hdf5"
 GS_EVALUATION_RESULTS_FILENAME = "gs_evaluation_results.hdf5"
+OVERALL_EVALUATION_RESULTS_FILENAME_HDF5 = "test_set_evaluation_results.hdf5"
+OVERALL_EVALUATION_RESULTS_FILENAME_CSV = "test_set_evaluation_results.csv"
 
 
 @typechecked
@@ -152,19 +154,48 @@ def evaluate_model(
         """
         boundary_maps = common_utils.convert_predictions_to_maps_semantic(
             categorical_pred,
-            bg_ilm=True,
+            bg_ilm=True,  # background ILM layer
             bg_csi=False,
         )
 
-        eval_label_t = np.expand_dims(
+        eval_label_class_first = np.expand_dims(
             np.transpose(eval_label, axes=(2, 0, 1)),
             axis=0,
         )  # Class should be in the 2nd dimension.
 
-        if DICE_METRIC in eval_params.metrics:
-            dices = _soft_dice(eval_label_t, categorical_pred)
+        if EVALUATION_METRIC_DICE_CLASSES in eval_params.metrics:
+            dice_classes = custom_metrics.soft_dice_class(
+                eval_label_class_first, categorical_pred
+            )
+        else:
+            dice_classes = None
 
-        if AVERAGE_SURFACE_DISTANCE_METRIC in eval_params.metrics:
+        if EVALUATION_METRIC_DICE_MACRO in eval_params.metrics:
+            dice_macro_f = custom_metrics.dice_coef_macro(
+                is_y_true_sparse=False,
+                num_classes=eval_params.num_classes,
+            )
+            dice_macro = np.array(
+                dice_macro_f(
+                    np.expand_dims(eval_label, axis=0),
+                    np.transpose(categorical_pred, axes=[0, 2, 3, 1]),
+                )
+            )
+        else:
+            dice_macro = None
+
+        if EVALUATION_METRIC_DICE_MICRO in eval_params.metrics:
+            dice_micro_f = custom_metrics.dice_coef_micro(
+                is_y_true_sparse=False,
+                num_classes=eval_params.num_classes,
+            )
+            dice_micro = np.array(
+                dice_micro_f(eval_label_class_first, categorical_pred)
+            )
+        else:
+            dice_micro = None
+
+        if EVALUATION_METRIC_AVERAGE_SURFACE_DISTANCE in eval_params.metrics:
             average_surface_distances = []
             average_surface_distances_gt_to_pred = []
             average_surface_distances_pred_to_gt = []
@@ -193,12 +224,20 @@ def evaluate_model(
                     (average_distance_gt_to_pred + average_distance_pred_to_gt)
                     / 2.0
                 )
+
+            average_surface_distances = np.array(average_surface_distances)
+            average_surface_distances_gt_to_pred = np.array(
+                average_surface_distances_gt_to_pred
+            )
+            average_surface_distances_pred_to_gt = np.array(
+                average_surface_distances_pred_to_gt
+            )
         else:
             average_surface_distances = None
             average_surface_distances_gt_to_pred = None
             average_surface_distances_pred_to_gt = None
 
-        if HAUSDORFF_DISTANCE_METRIC in eval_params.metrics:
+        if EVALUATION_METRIC_HAUSDORFF_DISTANCE in eval_params.metrics:
             hausdorff_distances = []
             # Skip background class
             for class_idx in range(1, eval_params.num_classes):
@@ -214,6 +253,7 @@ def evaluate_model(
                         percent=95,
                     )
                 )
+            hausdorff_distances = np.array(hausdorff_distances)
         else:
             hausdorff_distances = None
 
@@ -231,11 +271,13 @@ def evaluate_model(
             categorical_pred,
             eval_label,
             eval_seg,
-            dices,
-            np.array(average_surface_distances),
-            np.array(average_surface_distances_gt_to_pred),
-            np.array(average_surface_distances_pred_to_gt),
-            np.array(hausdorff_distances),
+            dice_classes,
+            dice_macro,
+            dice_micro,
+            average_surface_distances,
+            average_surface_distances_gt_to_pred,
+            average_surface_distances_pred_to_gt,
+            hausdorff_distances,
             predict_time,
             eval_image_output_dir,
         )
@@ -282,16 +324,53 @@ def evaluate_model(
                 reconstructed_maps
             )
 
-            gs_dices = _soft_dice(
-                np.expand_dims(
-                    # We transpose width and height (0, 1) and we bring the
-                    # class dimension to the front since it needs to be in
-                    # the 2nd dimension for _soft_dice.
-                    np.transpose(eval_label, axes=[2, 1, 0]),
-                    axis=0,
-                ),
-                reconstructed_maps,
+            eval_label_class_first_t = np.expand_dims(
+                # We transpose width and height (0, 1) and we bring the
+                # class dimension to the front since it needs to be in
+                # the 2nd dimension for soft_dice_class(). Finally, we
+                # expand axis=0 (batch dim)
+                np.transpose(eval_label, axes=[2, 1, 0]),
+                axis=0,
             )
+            if EVALUATION_METRIC_DICE_CLASSES in eval_params.metrics:
+                gs_dice_classes = custom_metrics.soft_dice_class(
+                    eval_label_class_first_t,
+                    reconstructed_maps,
+                )
+            else:
+                gs_dice_classes = None
+
+            if EVALUATION_METRIC_DICE_MACRO in eval_params.metrics:
+                dice_macro_f = custom_metrics.dice_coef_macro(
+                    is_y_true_sparse=False,
+                    num_classes=eval_params.num_classes,
+                )
+                eval_label_t = np.expand_dims(
+                    np.transpose(eval_label, axes=[1, 0, 2]),
+                    axis=0,
+                )
+                gs_dice_macro = np.array(
+                    dice_macro_f(
+                        eval_label_t,
+                        np.transpose(reconstructed_maps, axes=[0, 2, 3, 1]),
+                    )
+                )
+            else:
+                gs_dice_macro = None
+
+            if EVALUATION_METRIC_DICE_MICRO in eval_params.metrics:
+                dice_micro_f = custom_metrics.dice_coef_micro(
+                    is_y_true_sparse=False,
+                    num_classes=eval_params.num_classes,
+                )
+                gs_dice_micro = np.array(
+                    dice_micro_f(
+                        eval_label_class_first_t,
+                        reconstructed_maps,
+                    )
+                )
+            else:
+                gs_dice_micro = None
 
             gs_eval_label = np.transpose(np.squeeze(gs_eval_label))
 
@@ -316,7 +395,9 @@ def evaluate_model(
                 eval_seg,
                 gs_eval_label,
                 gs_pred_segs,
-                gs_dices,
+                gs_dice_classes,
+                gs_dice_macro,
+                gs_dice_micro,
                 errors,
                 mean_abs_err,
                 mean_err,
@@ -379,7 +460,9 @@ def _save_image_evaluation_results(
     categorical_pred: np.ndarray,
     eval_labels: np.ndarray,
     eval_segs: np.ndarray,
-    dices: Union[np.ndarray, None],
+    dice_classes: Union[np.ndarray, None],
+    dice_macro: Union[np.ndarray, None],
+    dice_micro: Union[np.ndarray, None],
     average_surface_distances: Union[np.ndarray, None],
     average_surface_distances_gt_to_pred: Union[np.ndarray, None],
     average_surface_distances_pred_to_gt: Union[np.ndarray, None],
@@ -452,9 +535,25 @@ def _save_image_evaluation_results(
 
     hdf5_file.create_dataset("raw_segs", data=eval_segs, dtype="uint16")
 
-    if dices is not None:
+    if dice_classes is not None:
         hdf5_file.create_dataset(
-            "dices", data=np.squeeze(dices), dtype="float64"
+            EVALUATION_METRIC_DICE_CLASSES,
+            data=np.squeeze(dice_classes),
+            dtype="float64",
+        )
+
+    if dice_macro is not None:
+        hdf5_file.create_dataset(
+            EVALUATION_METRIC_DICE_MACRO,
+            data=np.expand_dims(dice_macro, axis=0),
+            dtype="float64",
+        )
+
+    if dice_micro is not None:
+        hdf5_file.create_dataset(
+            EVALUATION_METRIC_DICE_MICRO,
+            data=np.expand_dims(dice_micro, axis=0),
+            dtype="float64",
         )
 
     if average_surface_distances is not None:
@@ -502,7 +601,9 @@ def _save_graph_based_evaluation_results(
     truth_label_segs: np.ndarray,
     gs_eval_label: np.ndarray,
     gs_pred_segs: np.ndarray,
-    gs_dices: np.ndarray,
+    gs_dice_classes: Union[np.ndarray, None],
+    gs_dice_macro: Union[np.ndarray, None],
+    gs_dice_micro: Union[np.ndarray, None],
     errors: np.ndarray,
     mean_abs_err: np.ndarray,
     mean_err: np.ndarray,
@@ -539,9 +640,28 @@ def _save_graph_based_evaluation_results(
     hdf5_file.create_dataset("mean_err", data=mean_err, dtype="float64")
     hdf5_file.create_dataset("abs_err_sd", data=abs_err_sd, dtype="float64")
     hdf5_file.create_dataset("err_sd", data=err_sd, dtype="float64")
-    hdf5_file.create_dataset(
-        "gs_dices", data=np.squeeze(gs_dices), dtype="float64"
-    )
+
+    if gs_dice_classes is not None:
+        hdf5_file.create_dataset(
+            EVALUATION_METRIC_DICE_CLASSES,
+            data=np.squeeze(gs_dice_classes),
+            dtype="float64",
+        )
+
+    if gs_dice_macro is not None:
+        hdf5_file.create_dataset(
+            EVALUATION_METRIC_DICE_MACRO,
+            data=np.expand_dims(gs_dice_macro, axis=0),
+            dtype="float64",
+        )
+
+    if gs_dice_micro is not None:
+        hdf5_file.create_dataset(
+            EVALUATION_METRIC_DICE_MICRO,
+            data=np.expand_dims(gs_dice_micro, axis=0),
+            dtype="float64",
+        )
+
     hdf5_file.create_dataset(
         "gs_predicted_labels", data=gs_eval_label, dtype="uint8"
     )
@@ -603,28 +723,6 @@ def save_eval_config_file(eval_params: EvaluationParameters):
     config_file.close()
 
 
-def _soft_dice(y_true, y_pred, eps=1e-5):
-    """
-    c is number of classes
-    :param y_pred: b x c x X x Y( x Z...) network output, must sum to 1 over
-    c channel (such as after softmax)
-    :param y_true: b x c x X x Y( x Z...) one hot encoding of ground truth
-    :param eps:
-    :return:
-    """
-    axes = tuple(range(2, len(y_pred.shape)))
-    intersect = np.sum(y_pred * y_true, axis=axes)
-    denom = np.sum(y_pred + y_true, axis=axes)
-
-    class_dices = ((2.0 * intersect) + eps) / (denom + eps)
-
-    intersect_total = np.sum(np.sum(y_pred * y_true, axis=axes))
-    denom_total = np.sum(np.sum(y_pred + y_true, axis=axes))
-    overall_dice = ((2.0 * intersect_total) + eps) / (denom_total + eps)
-    overall_dice = np.expand_dims(overall_dice, axis=(0, 1))
-    return np.concatenate((class_dices, overall_dice), axis=1)
-
-
 @typechecked
 def _calc_overall_dataset_errors(
     eval_params: EvaluationParameters, eval_image_names: list[Path]
@@ -639,8 +737,12 @@ def _calc_overall_dataset_errors(
     metrics = eval_params.metrics
 
     errors = None
-    dices = None
-    dices_recon = None
+    dices_classes = None
+    dices_macro = None
+    dices_micro = None
+    gs_dices_classes = None
+    gs_dices_macro = None
+    gs_dices_micro = None
     average_surface_distances = None
     average_surface_distances_gt_to_pred = None
     average_surface_distances_pred_to_gt = None
@@ -672,10 +774,22 @@ def _calc_overall_dataset_errors(
                 )
             return metric
 
-        if DICE_METRIC in metrics:
-            dices = concat_metric_from_hdf5(eval_file, "dices", dices)
+        if EVALUATION_METRIC_DICE_CLASSES in metrics:
+            dices_classes = concat_metric_from_hdf5(
+                eval_file, EVALUATION_METRIC_DICE_CLASSES, dices_classes
+            )
 
-        if AVERAGE_SURFACE_DISTANCE_METRIC in metrics:
+        if EVALUATION_METRIC_DICE_MACRO in metrics:
+            dices_macro = concat_metric_from_hdf5(
+                eval_file, EVALUATION_METRIC_DICE_MACRO, dices_macro
+            )
+
+        if EVALUATION_METRIC_DICE_MICRO in metrics:
+            dices_micro = concat_metric_from_hdf5(
+                eval_file, EVALUATION_METRIC_DICE_MICRO, dices_micro
+            )
+
+        if EVALUATION_METRIC_AVERAGE_SURFACE_DISTANCE in metrics:
             average_surface_distances = concat_metric_from_hdf5(
                 eval_file,
                 "average_surface_distances",
@@ -692,7 +806,7 @@ def _calc_overall_dataset_errors(
                 average_surface_distances_pred_to_gt,
             )
 
-        if HAUSDORFF_DISTANCE_METRIC in metrics:
+        if EVALUATION_METRIC_HAUSDORFF_DISTANCE in metrics:
             hausdorff_distances = concat_metric_from_hdf5(
                 eval_file, "hausdorff_distances", hausdorff_distances
             )
@@ -714,18 +828,27 @@ def _calc_overall_dataset_errors(
                     (errors, np.expand_dims(file_errors, 0)), 0
                 )
 
-            file_dices_recon = gs_eval_file["gs_dices"][:]
-            if dices_recon is None:
-                dices_recon = np.expand_dims(file_dices_recon, 0)
-            else:
-                dices_recon = np.concatenate(
-                    (dices_recon, np.expand_dims(file_dices_recon, 0)), 0
+            if EVALUATION_METRIC_DICE_CLASSES in metrics:
+                gs_dices_classes = concat_metric_from_hdf5(
+                    eval_file, EVALUATION_METRIC_DICE_CLASSES, gs_dices_classes
                 )
 
-    save_filename = output_dir / Path("errors_stats.hdf5")
+            if EVALUATION_METRIC_DICE_MACRO in metrics:
+                gs_dices_macro = concat_metric_from_hdf5(
+                    eval_file, EVALUATION_METRIC_DICE_MACRO, gs_dices_macro
+                )
+
+            if EVALUATION_METRIC_DICE_MICRO in metrics:
+                gs_dices_micro = concat_metric_from_hdf5(
+                    gs_eval_file, EVALUATION_METRIC_DICE_MICRO, gs_dices_micro
+                )
+
+    save_filename = output_dir / Path(OVERALL_EVALUATION_RESULTS_FILENAME_HDF5)
     save_file = h5py.File(save_filename, "w")
 
-    save_textfilename = output_dir / Path("error_stats.csv")
+    save_textfilename = output_dir / Path(
+        OVERALL_EVALUATION_RESULTS_FILENAME_CSV
+    )
     save_textfile = open(save_textfilename, "w")
 
     save_file["image_names"] = np.array(eval_image_names, dtype="S1000")
@@ -746,11 +869,16 @@ def _calc_overall_dataset_errors(
         save_textfile.write(f"SD {metric_name},")
         save_textfile.write(",".join([f"{e:.7f}" for e in sd_metric]) + "\n")
 
-    # Dice
-    if DICE_METRIC in metrics:
-        save_metric("dices", dices)
+    if EVALUATION_METRIC_DICE_CLASSES in metrics:
+        save_metric(f"non_gs_{EVALUATION_METRIC_DICE_CLASSES}", dices_classes)
 
-    if AVERAGE_SURFACE_DISTANCE_METRIC in metrics:
+    if EVALUATION_METRIC_DICE_MACRO in metrics:
+        save_metric(f"non_gs_{EVALUATION_METRIC_DICE_MACRO}", dices_macro)
+
+    if EVALUATION_METRIC_DICE_MICRO in metrics:
+        save_metric(f"non_gs_{EVALUATION_METRIC_DICE_MICRO}", dices_micro)
+
+    if EVALUATION_METRIC_AVERAGE_SURFACE_DISTANCE in metrics:
         save_metric("average_surface_distances", average_surface_distances)
         save_metric(
             "average_surface_distances_gt_to_pred",
@@ -761,7 +889,7 @@ def _calc_overall_dataset_errors(
             average_surface_distances_pred_to_gt,
         )
 
-    if HAUSDORFF_DISTANCE_METRIC in metrics:
+    if EVALUATION_METRIC_HAUSDORFF_DISTANCE in metrics:
         save_metric("hausdorff_distances", hausdorff_distances)
 
     # Boundary Errors
@@ -817,24 +945,17 @@ def _calc_overall_dataset_errors(
         save_textfile.write("SD errors,")
         save_textfile.write(",".join([f"{e:.7f}" for e in sd_errors]) + "\n")
 
-        # Reconstructed Dice Coeff.
-        save_file["dices_recon"] = dices_recon
+        # Dice Coef after Graph Search
+        if EVALUATION_METRIC_DICE_CLASSES in metrics:
+            save_metric(
+                f"gs_{EVALUATION_METRIC_DICE_CLASSES}", gs_dices_classes
+            )
 
-        mean_dices_recon = np.mean(dices_recon, axis=0)
-        sd_dices_recon = np.std(dices_recon, axis=0)
+        if EVALUATION_METRIC_DICE_MACRO in metrics:
+            save_metric(f"gs_{EVALUATION_METRIC_DICE_MACRO}", gs_dices_macro)
 
-        save_file["mean_dices_recon"] = mean_dices_recon
-        save_file["sd_dices_recon"] = sd_dices_recon
-
-        save_textfile.write("Mean dices recon,")
-        save_textfile.write(
-            ",".join([f"{e:.7f}" for e in mean_dices_recon]) + "\n"
-        )
-
-        save_textfile.write("SD dices recon,")
-        save_textfile.write(
-            ",".join([f"{e:.7f}" for e in sd_dices_recon]) + "\n"
-        )
+        if EVALUATION_METRIC_DICE_MICRO in metrics:
+            save_metric(f"gs_{EVALUATION_METRIC_DICE_MICRO}", gs_dices_micro)
 
     save_file.close()
     save_textfile.close()
