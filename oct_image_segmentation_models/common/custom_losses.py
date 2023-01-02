@@ -108,10 +108,10 @@ class SparseCategoricalFocalDiceLoss(fl.SparseCategoricalFocalLoss):
         self,
         num_classes: int,
         focal_loss_weight: float,
-        dice_macro: bool,
-        gamma,
+        gamma: float,
         class_weight: Optional[Any] = None,
         from_logits: bool = False,
+        dice_macro: bool = True,
         reduction=losses_utils.ReductionV2.AUTO,
         name="sparse_categorical_focal_dice_loss",
         **kwargs,
@@ -174,10 +174,15 @@ def focal_dice_loss(
     gamma: float = 2,
     class_weight: Union[np.ndarray, None] = None,
     focal_loss_weight: float = 0.5,
+    dice_macro: bool = True,
     **kwargs,
 ):
     return SparseCategoricalFocalDiceLoss(
-        num_classes, focal_loss_weight, gamma=gamma, class_weight=class_weight
+        num_classes,
+        focal_loss_weight,
+        gamma=gamma,
+        class_weight=class_weight,
+        dice_macro=dice_macro,
     )
 
 

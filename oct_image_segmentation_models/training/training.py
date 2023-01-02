@@ -219,7 +219,9 @@ def train_model(
             c_weight = None
         sparse_labels = loss["takes_sparse"]
         loss_fn = loss["function"](
-            num_classes=num_classes, is_y_true_sparse=sparse_labels
+            num_classes=num_classes,
+            is_y_true_sparse=sparse_labels,
+            **training_params.loss_fn_kwargs,
         )
 
     metric = custom_metrics.training_monitor_metric_objects.get(
@@ -281,6 +283,7 @@ def train_model(
             "augmentation_mode": training_params.aug_mode,
             "augmentations": training_params.augmentations,
             "loss_name": training_params.loss,
+            "loss_fn_kwargs": training_params.loss_fn_kwargs,
             "metric_name": training_params.metric,
             "loss_fn_class_weight": training_params.class_weight,
             "class_weight_array": c_weight,

@@ -54,12 +54,13 @@ class TrainingParams:
         initial_model: Union[Path, None],
         results_location: Path,
         opt_con,
-        opt_params,
         loss: str,
         metric: str,
         epochs: int,
         batch_size: int,
         model_hyperparameters: dict = {},
+        opt_params: dict = {},
+        loss_fn_kwargs: dict = {},
         augmentations: List[dict] = [],
         aug_mode: str = "none",
         aug_probs: Tuple = (),
@@ -91,6 +92,7 @@ class TrainingParams:
         self.opt_con = opt_con
         self.opt_params = opt_params
         self.loss = loss
+        self.loss_fn_kwargs = loss_fn_kwargs
         self.metric = metric
         self.epochs = epochs
         self.batch_size = batch_size
