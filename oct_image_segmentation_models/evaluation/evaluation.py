@@ -31,8 +31,8 @@ from oct_image_segmentation_models.min_path_processing import graph_search
 
 EVALUATION_RESULTS_FILENAME = "evaluation_results.hdf5"
 GS_EVALUATION_RESULTS_FILENAME = "gs_evaluation_results.hdf5"
-OVERALL_EVALUATION_RESULTS_FILENAME_HDF5 = "test_set_evaluation_results.hdf5"
-OVERALL_EVALUATION_RESULTS_FILENAME_CSV = "test_set_evaluation_results.csv"
+OVERALL_EVALUATION_RESULTS_FILENAME_HDF5 = "overall_evaluation_results.hdf5"
+OVERALL_EVALUATION_RESULTS_FILENAME_CSV = "overall_evaluation_results.csv"
 
 
 @typechecked
