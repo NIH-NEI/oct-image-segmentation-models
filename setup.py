@@ -18,12 +18,13 @@ def get_version():
 
 def get_install_requires():
     return [
-        "focal-loss",
-        "matplotlib",
+        "focal-loss==0.0.7",
+        "matplotlib==3.5.2",
         "mlflow==2.0.1",
-        "scikit-learn",
-        "tensorflow==2.9.1",
-        "typeguard",
+        "scikit-image==0.19.3",
+        "scikit-learn==1.1.3",
+        "tensorflow==2.9.0",
+        "typeguard==2.13.3",
     ]
 
 

@@ -290,7 +290,7 @@ def train_model(
     if aug_val is False:
         aug_val_mode = "none"
         aug_val_fn_args = []
-        aug_val_probs = []
+        aug_val_probs = ()
         aug_val_fly = False
     else:
         aug_val_mode = aug_mode

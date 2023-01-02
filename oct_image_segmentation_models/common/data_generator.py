@@ -3,6 +3,7 @@ from math import floor
 import numpy as np
 from tensorflow import keras
 from typeguard import typechecked
+from typing import List, Tuple
 
 
 @typechecked
@@ -57,20 +58,19 @@ class BatchGenerator:
         images: np.ndarray,
         labels: np.ndarray,
         batch_size: int,
-        aug_fn_args,
-        aug_mode,
-        aug_probs,
-        aug_fly,
+        aug_fn_args: List[Tuple],
+        aug_mode: str,
+        aug_probs: Tuple,
+        aug_fly: bool,
     ):
-        self.images = images
+        self.images = images / 255.0  # normalise batch images
         self.labels = labels
-        self.batch_counter = (
-            0  # number of batches generated in the current epoch
-        )
+        self.batch_counter = 0  # number of batches generated in the
+        # current epoch
+
         self.batch_size = batch_size  # number of samples in a batch
-        self.full_counter = (
-            0  # used to track which full size image we are up to
-        )
+        self.full_counter = 0  # used to track which full size image we
+        # are up to
 
         self.aug_counter = 0  # used to track which augmentation index we are
         # up to (for aug_mode='all')
@@ -167,7 +167,9 @@ class BatchGenerator:
                 image = self.images[i]
                 label = self.labels[i]
                 aug_images[i, j], aug_labels[i, j] = aug_fn(
-                    image, label, aug_arg,
+                    image,
+                    label,
+                    aug_arg,
                 )
 
         return aug_images, aug_labels
@@ -329,9 +331,6 @@ class BatchGenerator:
         if self.batch_counter == self.num_batches:
             self.batch_counter = 0
 
-        # normalise batch images before passing to network
-        batch_images /= 255.0
-
         return [batch_images, batch_labels]
 
     def handle_epoch_end(self):
@@ -366,10 +365,10 @@ class DataGenerator(keras.utils.Sequence):
         images: np.ndarray,
         labels: np.ndarray,
         batch_size: int,
-        aug_fn_args,
-        aug_mode,
-        aug_probs,
-        aug_fly,
+        aug_fn_args: List[Tuple],
+        aug_mode: str,
+        aug_probs: Tuple,
+        aug_fly: bool,
     ):
         self.batch_gen = BatchGenerator(
             images=images,

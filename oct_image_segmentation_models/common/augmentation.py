@@ -1,4 +1,5 @@
 import numpy as np
+from skimage.util import random_noise
 import time
 
 
@@ -68,9 +69,21 @@ def flip_aug(image, mask, aug_args, desc_only=False):
         return aug_desc
 
 
+def add_noise_aug(image, mask, aug_args, desc_only=False):
+    if desc_only is False:
+        mode = aug_args["mode"]
+        mean = aug_args["mean"]
+        variance = aug_args["variance"]
+        noise_img = random_noise(image, mode=mode, mean=mean, var=variance)
+        return noise_img, mask
+    else:
+        return "add noise: " + str(aug_args)
+
+
 augmentation_map = {
-    "no_augmentation": no_aug,
+    "add_noise": add_noise_aug,
     "flip": flip_aug,
+    "no_augmentation": no_aug,
 }
 
 
