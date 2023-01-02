@@ -1,7 +1,9 @@
+import logging as log
 from pathlib import Path
 from typeguard import typechecked
-from typing import Union
+from typing import List, Tuple, Union
 
+from oct_image_segmentation_models.common import AUG_MODES
 from oct_image_segmentation_models.common import augmentation as aug
 
 
@@ -10,29 +12,37 @@ class TrainingParams:
     """
     Parameters for training a network:
 
-        aug_fn_args: tuple of two-tuples containing augmentation function and \
-            argument pairs
+        aug_fn_args: list of dictions containing augmentation functions and
+        argument pairs. Each element in the list is a dictionary with the
+        following structure:
+        {
+            "name": <augmentation_fn_name>,
+            "arguments": {
+                "<argument_name>": "<argument_value>" ,
+                ...
+            }
+        }
         _________
 
         aug_mode: mode to use for augmentation
 
-        none: no augmentations -> will just use what is in the images and \
+        none: no augmentations -> will just use what is in the images and
         labels arrays as is
-        one: for each image, one augmentation will be picked from the list of \
-        possible augmentation functions chosen based on probabilities in \
+        one: for each image, one augmentation will be picked from the list of
+        possible augmentation functions chosen based on probabilities in
         aug_probs.
-        all: for each image, all augmentations will be performed creating a \
+        all: for each image, all augmentations will be performed creating a
         new separate image for each
 
-        note that for patch mode: augs are applied to the full size images \
+        note that for patch mode: augs are applied to the full size images
         before being broken into patches
         _________
 
-        aug_probs: probabilities used for selecting augmentations in 'one' \
+        aug_probs: probabilities used for selecting augmentations in 'one'
         mode. Should be values between 0 and 1 which add to 1.
         _________
 
-        aug_val: boolean used to apply the same augmentation policy to the \
+        aug_val: boolean used to apply the same augmentation policy to the
         validation dataset.
         _________
     """
@@ -50,13 +60,13 @@ class TrainingParams:
         epochs: int,
         batch_size: int,
         model_hyperparameters: dict = {},
-        aug_fn_args=((aug.no_aug, {}),),
-        aug_mode="none",
-        aug_probs=(),
-        aug_fly=False,
-        aug_val=True,
-        shuffle=True,
-        model_save_best=True,
+        augmentations: List[dict] = [],
+        aug_mode: str = "none",
+        aug_probs: Tuple = (),
+        aug_fly: bool = False,
+        aug_val: bool = True,
+        shuffle: bool = True,
+        model_save_best: bool = True,
         model_save_monitor=("val_acc", "max"),
         class_weight: Union[list, str, None] = None,
         channels_last: bool = True,
@@ -67,10 +77,12 @@ class TrainingParams:
         if (model_architecture is None and initial_model is None) or (
             model_architecture is not None and initial_model is not None
         ):
-            raise ValueError(
+            log.error(
                 "Either 'model_architecture' or 'initial_model' "
                 "need to be provided in the `config.json`."
             )
+            exit(1)
+
         self.model_architecture = model_architecture
         self.model_hyperparameters = model_hyperparameters
         self.training_dataset_path = training_dataset_path
@@ -82,8 +94,28 @@ class TrainingParams:
         self.metric = metric
         self.epochs = epochs
         self.batch_size = batch_size
-        self.aug_fn_args = aug_fn_args
+
+        if aug_mode not in AUG_MODES:
+            log.error(f"Augmentation mode: '{aug_mode}' is not supported.")
+            exit(1)
         self.aug_mode = aug_mode
+
+        self.aug_fn_args = []
+        for augmentation in augmentations:
+            aug_fn = aug.augmentation_map.get(augmentation["name"])
+            if aug_fn is None:
+                log.error(
+                    f"Augmentation: '{augmentation['name']}' is not supported."
+                )
+                exit(1)
+            self.aug_fn_args.append(
+                (
+                    aug_fn,
+                    augmentation.get("arguments", {}),
+                )
+            )
+        self.augmentations = augmentations
+
         self.aug_probs = aug_probs
         self.aug_fly = aug_fly
         self.aug_val = aug_val

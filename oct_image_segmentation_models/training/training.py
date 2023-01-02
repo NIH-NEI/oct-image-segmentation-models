@@ -74,6 +74,7 @@ def save_training_params_file(
     config_file.attrs["aug_mode"] = np.array(
         train_params.aug_mode, dtype="S100"
     )
+
     if train_params.aug_mode != "none":
         for aug_ind in range(len(train_params.aug_fn_args)):
             aug_fn = train_params.aug_fn_args[aug_ind][0]
@@ -278,6 +279,7 @@ def train_model(
             "training_dataset_path": training_dataset_path,
             "training_dataset_md5": training_dataset_md5,
             "augmentation_mode": training_params.aug_mode,
+            "augmentations": training_params.augmentations,
             "loss_name": training_params.loss,
             "metric_name": training_params.metric,
             "loss_fn_class_weight": training_params.class_weight,

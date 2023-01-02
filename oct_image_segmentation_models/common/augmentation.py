@@ -39,9 +39,7 @@ def augment_dataset(images, masks, segs, aug_fn_arg):
     ]
 
 
-def no_aug(
-    image, mask, aug_args, desc_only=False, sample_ind=None, set=None
-):
+def no_aug(image, mask, aug_args, desc_only=False, sample_ind=None, set=None):
     desc = "no aug"
     if desc_only is False:
         return image, mask, desc, 0
@@ -55,9 +53,9 @@ def flip_aug(image, mask, aug_args, desc_only=False, sample_ind=None):
     flip_type = aug_args["flip_type"]
 
     if flip_type == "up-down":
-        axis = 1
-    elif flip_type == "left-right":
         axis = 0
+    elif flip_type == "left-right":
+        axis = 1
 
     aug_desc = "flip aug: " + flip_type
 
@@ -74,6 +72,12 @@ def flip_aug(image, mask, aug_args, desc_only=False, sample_ind=None):
         return aug_image, aug_mask, aug_desc, augment_time
     else:
         return aug_desc
+
+
+augmentation_map = {
+    "no_augmentation": no_aug,
+    "flip": flip_aug,
+}
 
 
 def normalize(x):
