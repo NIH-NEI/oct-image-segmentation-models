@@ -25,7 +25,7 @@ def augment_dataset(images, masks, segs, aug_fn_arg):
             _,
         ) = aug_fn(image, mask, seg, aug_arg)
 
-    aug_desc = aug_fn(None, None, None, aug_arg, True)
+    aug_desc = aug_fn(None, None, aug_arg, True)
 
     end_augment_time = time.time()
     total_aug_time = end_augment_time - start_augment_time
@@ -39,25 +39,21 @@ def augment_dataset(images, masks, segs, aug_fn_arg):
     ]
 
 
-def no_aug(image, mask, aug_args, desc_only=False, sample_ind=None, set=None):
-    desc = "no aug"
+def no_aug(image, mask, _aug_args, desc_only=False):
     if desc_only is False:
-        return image, mask, desc, 0
+        return image, mask
     else:
+        desc = "no aug"
         return desc
 
 
-def flip_aug(image, mask, aug_args, desc_only=False, sample_ind=None):
-    start_augment_time = time.time()
-
+def flip_aug(image, mask, aug_args, desc_only=False):
     flip_type = aug_args["flip_type"]
 
     if flip_type == "up-down":
         axis = 0
     elif flip_type == "left-right":
         axis = 1
-
-    aug_desc = "flip aug: " + flip_type
 
     if desc_only is False:
         aug_image = np.flip(image, axis=axis)
@@ -66,11 +62,9 @@ def flip_aug(image, mask, aug_args, desc_only=False, sample_ind=None):
         else:
             aug_mask = None
 
-        end_augment_time = time.time()
-        augment_time = end_augment_time - start_augment_time
-
-        return aug_image, aug_mask, aug_desc, augment_time
+        return aug_image, aug_mask
     else:
+        aug_desc = "flip aug: " + flip_type
         return aug_desc
 
 

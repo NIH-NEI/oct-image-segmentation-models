@@ -166,8 +166,8 @@ class BatchGenerator:
                 aug_arg = self.aug_fn_args[j][1]
                 image = self.images[i]
                 label = self.labels[i]
-                aug_images[i, j], aug_labels[i, j], _, _ = aug_fn(
-                    image, label, None, aug_arg, sample_ind=i
+                aug_images[i, j], aug_labels[i, j] = aug_fn(
+                    image, label, aug_arg,
                 )
 
         return aug_images, aug_labels
@@ -193,9 +193,8 @@ class BatchGenerator:
 
             aug_fn = aug_fn_arg[0]
             aug_arg = aug_fn_arg[1]
-            aug_image, aug_label, _, _ = aug_fn(
-                raw_image, raw_label, aug_arg, sample_ind=sample_ind
-            )  # apply augmentation
+            # apply augmentation
+            aug_image, aug_label = aug_fn(raw_image, raw_label, aug_arg)
 
             self.aug_counter += (
                 1  # move to the next augmentation ready for next time
@@ -215,10 +214,8 @@ class BatchGenerator:
 
             aug_fn = aug_fn_arg[0]
             aug_arg = aug_fn_arg[1]
-
-            aug_image, aug_label, _, _ = aug_fn(
-                raw_image, raw_label, aug_arg, sample_ind=sample_ind
-            )  # apply augmentation
+            # apply augmentation
+            aug_image, aug_label = aug_fn(raw_image, raw_label, aug_arg)
 
             self.full_counter += 1  # just the single random augmentation so
             # move to the next raw image
