@@ -50,7 +50,9 @@ def focal_loss(
 def dice_loss_micro(*, is_y_true_sparse: bool, num_classes: int, **kwargs):
     def _dice_loss_micro(y_true, y_pred, smooth=1e-05):
         if is_y_true_sparse:
-            y_true = tf.one_hot(tf.cast(y_true, dtype=tf.int32), num_classes)
+            y_true = tf.one_hot(
+                tf.cast(tf.squeeze(y_true), dtype=tf.int32), num_classes
+            )
         y_true_f = K.flatten(y_true)
         y_pred_f = K.flatten(y_pred)
         intersection = y_true_f * y_pred_f
@@ -66,7 +68,9 @@ def dice_loss_micro(*, is_y_true_sparse: bool, num_classes: int, **kwargs):
 def dice_loss_macro(*, is_y_true_sparse: bool, num_classes: int, **kwargs):
     def _dice_loss_macro(y_true, y_pred, smooth=1e-05):
         if is_y_true_sparse:
-            y_true = tf.one_hot(tf.cast(y_true, dtype=tf.int32), num_classes)
+            y_true = tf.one_hot(
+                tf.cast(tf.squeeze(y_true), dtype=tf.int32), num_classes
+            )
         reduce_axis = range(1, len(y_pred.shape) - 1)
         intersection = K.sum(y_true * y_pred, axis=reduce_axis)
         y_true_sum = K.sum(y_true, axis=reduce_axis)

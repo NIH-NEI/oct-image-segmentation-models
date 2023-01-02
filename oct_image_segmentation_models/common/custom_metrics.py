@@ -29,7 +29,9 @@ def dice_coef_micro(is_y_true_sparse: bool, num_classes: int):
         y_true: b x X x Y( x Z...) if is_y_true_sparse == True
         """
         if is_y_true_sparse:
-            y_true = tf.one_hot(tf.cast(y_true, dtype=tf.int32), num_classes)
+            y_true = tf.one_hot(
+                tf.cast(tf.squeeze(y_true), dtype=tf.int32), num_classes
+            )
         y_true_f = K.flatten(y_true)
         y_pred = K.cast(y_pred, "float32")
         y_pred_f = K.cast(K.greater(K.flatten(y_pred), 0.5), "float32")
@@ -57,7 +59,9 @@ def dice_coef_macro(is_y_true_sparse: bool, num_classes: int):
         y_true: b x X x Y( x Z...) if is_y_true_sparse == True
         """
         if is_y_true_sparse:
-            y_true = tf.one_hot(tf.cast(y_true, dtype=tf.int32), num_classes)
+            y_true = tf.one_hot(
+                tf.cast(tf.squeeze(y_true), dtype=tf.int32), num_classes
+            )
         y_pred = K.cast(K.greater(y_pred, 0.5), "float32")
         reduce_axis = range(1, len(y_pred.shape) - 1)
         intersection = K.sum(y_true * y_pred, axis=reduce_axis)
