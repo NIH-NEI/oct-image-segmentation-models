@@ -17,7 +17,7 @@ def convolution_block(
         num_filters,
         kernel_size=kernel_size,
         dilation_rate=dilation_rate,
-        padding="same",
+        padding=padding,
         use_bias=use_bias,
         kernel_initializer=keras.initializers.HeNormal(),
     )(block_input)
@@ -58,7 +58,7 @@ def DilatedSpatialPyramidPooling(dspp_input):
 
 @typechecked
 def DeeplabV3Plus(
-    image_width, image_height, num_classes
+    *, image_width: int, image_height: int, num_classes: int, **kwargs
 ) -> Tuple[Model, dict]:
     model_input = keras.Input(shape=(image_height, image_width, 3))
     resnet50 = keras.applications.ResNet50(
@@ -85,7 +85,10 @@ def DeeplabV3Plus(
     )(x)
 
     model_output = layers.Conv2D(
-        num_classes, kernel_size=(1, 1), padding="same"
+        num_classes,
+        kernel_size=(1, 1),
+        padding="same",
+        activation="softmax",
     )(x)
 
     hyperparameters = {

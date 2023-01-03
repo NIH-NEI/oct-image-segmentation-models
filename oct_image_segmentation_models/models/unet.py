@@ -65,6 +65,7 @@ def unet(
     conv_layers: int = 2,
     enc_kernel: tuple = (3, 3),
     dec_kernel: tuple = (2, 2),
+    **kwargs,
 ) -> Tuple[Model, dict]:
     inp = Input(batch_shape=(None, None, None, input_channels))
 
