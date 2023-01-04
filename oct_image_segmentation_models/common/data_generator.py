@@ -3,7 +3,7 @@ from math import floor
 import numpy as np
 from tensorflow import keras
 from typeguard import typechecked
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 
 @typechecked
@@ -13,7 +13,8 @@ class BatchGenerator:
 
         _________
 
-        images: array of all images to be used.
+        images: array of all images to be used. An uint8 numpy.array
+        with values in the range [0, 255].
         Shape: (number of images, height, width)
         _________
 
@@ -51,6 +52,14 @@ class BatchGenerator:
         start as well as at the end of each epoch
         _________
 
+        Notes
+        -----
+        BatchGenerator 'images' parameter must be a numpy.array
+        with values in the range [0, 255]. In __init__ the array is normalized
+        to be in the range [0, 1]. This is done so that potential 'noise
+        addition' augmentations using skimage are consistent. After all
+        augmentations are performed, the data is denormalized and the model's
+        'preprocess_input()' function is invoked.
     """
 
     def __init__(
@@ -62,6 +71,7 @@ class BatchGenerator:
         aug_mode: str,
         aug_probs: Tuple,
         aug_fly: bool,
+        preprocess_input_fn: Callable,
     ):
         self.images = images / 255.0  # normalise batch images
         self.labels = labels
@@ -79,6 +89,8 @@ class BatchGenerator:
         self.aug_mode = aug_mode
         self.aug_probs = aug_probs
         self.aug_fly = aug_fly
+
+        self.preprocess_input_fn = preprocess_input_fn
 
         self.total_full_images = self.images.shape[0]
 
@@ -227,6 +239,8 @@ class BatchGenerator:
             aug_label = raw_label
             self.full_counter += 1  # move to the next image
 
+        # Denormalize and apply model's input preprocessing
+        aug_image = self.preprocess_input_fn(aug_image * 255.0)
         return aug_image, aug_label
 
     def get_aug_nofly(self, sample_ind):
@@ -268,6 +282,8 @@ class BatchGenerator:
             aug_label = raw_label
             self.full_counter += 1
 
+        # Denormalize and apply model's input preprocessing
+        aug_image = self.preprocess_input_fn(aug_image * 255.0)
         return aug_image, aug_label
 
     def get_batch_list(self):
@@ -369,6 +385,7 @@ class DataGenerator(keras.utils.Sequence):
         aug_mode: str,
         aug_probs: Tuple,
         aug_fly: bool,
+        preprocess_input_fn: Callable,
     ):
         self.batch_gen = BatchGenerator(
             images=images,
@@ -378,6 +395,7 @@ class DataGenerator(keras.utils.Sequence):
             aug_mode=aug_mode,
             aug_probs=aug_probs,
             aug_fly=aug_fly,
+            preprocess_input_fn=preprocess_input_fn,
         )
 
     def __len__(self):

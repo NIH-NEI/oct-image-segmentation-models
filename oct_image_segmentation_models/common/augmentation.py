@@ -74,6 +74,22 @@ def add_noise_aug(image, mask, aug_args, desc_only=False):
         mode = aug_args["mode"]
         mean = aug_args["mean"]
         variance = aug_args["variance"]
+
+        """
+        Documentation note on random_noise():
+        Because of the prevalence of exclusively positive floating-point
+        images in intermediate calculations, it is not possible to intuit
+        if an input is signed based on dtype alone. Instead, negative values
+        are explicitly searched for. Only if found does this function assume
+        signed input.
+
+        Returns:
+        out: ndarray: Output floating-point image data on range [0, 1] or
+        [-1, 1] if the input image was unsigned or signed, respectively.
+
+        This is important because some models scale the input from [0, 1]
+        (i.e. U-Net) while others [-1, 1] (i.e. keras.applications.ResNet50)
+        """
         noise_img = random_noise(image, mode=mode, mean=mean, var=variance)
         return noise_img, mask
     else:

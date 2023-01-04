@@ -377,6 +377,7 @@ def train_model(
         aug_mode,
         aug_probs,
         aug_fly,
+        model_container.get_preprocess_input_fn(),
     )
 
     val_gen = data_gen.DataGenerator(
@@ -387,6 +388,7 @@ def train_model(
         aug_val_mode,
         aug_val_probs,
         aug_val_fly,
+        model_container.get_preprocess_input_fn(),
     )
 
     train_gen_total_samples = train_gen.get_total_samples()

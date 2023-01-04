@@ -10,7 +10,7 @@ from tensorflow.keras.layers import (
     UpSampling2D,
 )
 from typeguard import typechecked
-from typing import Tuple
+from typing import Callable, Tuple
 
 from .base_model import BaseModel
 
@@ -73,6 +73,11 @@ class UNet(BaseModel):
             image_height=image_height,
             image_width=image_width,
         )
+
+    def get_preprocess_input_fn(self) -> Callable:
+        def preprocess_input_inner(x):
+            return x / 255.0
+        return preprocess_input_inner
 
     def build_model(
         self,

@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, Model
 from typeguard import typechecked
-from typing import Tuple
+from typing import Callable, Tuple
 
 from .base_model import BaseModel
 
@@ -74,6 +74,9 @@ class DeeplabV3Plus(BaseModel):
             image_height=image_height,
             image_width=image_width,
         )
+
+    def get_preprocess_input_fn(self) -> Callable:
+        return keras.applications.resnet50.preprocess_input
 
     def build_model(
         self,
