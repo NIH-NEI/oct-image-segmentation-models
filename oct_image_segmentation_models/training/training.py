@@ -24,7 +24,7 @@ from oct_image_segmentation_models.common import (
 from oct_image_segmentation_models.common.mlflow_parameters import (
     MLflowParameters,
 )
-from oct_image_segmentation_models.models import build_model
+from oct_image_segmentation_models.models import get_model_class
 from oct_image_segmentation_models.training import (
     training_callbacks,
     training_parameters as tparams,
@@ -190,8 +190,13 @@ def train_model(
 
     num_classes = len(np.unique(train_labels))
     log.info(f"Detected {num_classes} classes")
-    input_channels = train_images.shape[-1]
-    log.info(f"Detected {input_channels} input channels")
+
+    _, image_height, image_width, input_channels = train_images.shape
+    log.info(
+        f"Detected input mage dimensions (h x w): {image_height} x "
+        f"{image_width}."
+    )
+    log.info(f"Detected {input_channels} input channels.")
 
     strategy = tf.distribute.MirroredStrategy()
     log.info(f"Number of devices: {strategy.num_replicas_in_sync}")
@@ -251,12 +256,24 @@ def train_model(
     else:
         log.info(f"Starting training from scratch {model_architecture} model")
 
-        model_hyperparameters["input_channels"] = input_channels
-        model_hyperparameters["output_channels"] = num_classes
         with strategy.scope():
-            model, model_hyperparameters = build_model(
-                training_params.model_architecture,
-                **model_hyperparameters,
+            try:
+                model_class = get_model_class(
+                    training_params.model_architecture,
+                )
+            except ValueError as e:
+                log.error(e)
+                exit(1)
+
+            model_container = model_class(
+                input_channels=input_channels,
+                num_classes=num_classes,
+                image_height=image_height,
+                image_width=image_width,
+            )
+
+            model, model_hyperparameters = model_container.build_model(
+                **model_hyperparameters
             )
 
             model.compile(

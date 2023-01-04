@@ -12,6 +12,8 @@ from tensorflow.keras.layers import (
 from typeguard import typechecked
 from typing import Tuple
 
+from .base_model import BaseModel
+
 
 def batch_activate(x):
     x = BatchNormalization()(x)
@@ -56,67 +58,82 @@ def unet_dec_block(
 
 
 @typechecked
-def unet(
-    *,
-    input_channels: int,
-    output_channels: int,
-    start_neurons: int = 8,
-    pool_layers: int = 4,
-    conv_layers: int = 2,
-    enc_kernel: tuple = (3, 3),
-    dec_kernel: tuple = (2, 2),
-    **kwargs,
-) -> Tuple[Model, dict]:
-    inp = Input(batch_shape=(None, None, None, input_channels))
-
-    x = inp
-
-    enc = []
-
-    for i in range(pool_layers):
-        [x, c] = unet_enc_block(
-            x,
-            start_neurons * (2**i),
-            enc_kernel=enc_kernel,
-            conv_layers=conv_layers,
+class UNet(BaseModel):
+    def __init__(
+        self,
+        *,
+        input_channels: int,
+        num_classes: int,
+        image_height: int,
+        image_width: int,
+    ) -> None:
+        super().__init__(
+            input_channels=input_channels,
+            num_classes=num_classes,
+            image_height=image_height,
+            image_width=image_width,
         )
 
-        enc.append(c)
+    def build_model(
+        self,
+        *,
+        start_neurons: int = 8,
+        pool_layers: int = 4,
+        conv_layers: int = 2,
+        enc_kernel: tuple = (3, 3),
+        dec_kernel: tuple = (2, 2),
+        **kwargs,
+    ) -> Tuple[Model, dict]:
+        inp = Input(batch_shape=(None, None, None, self.input_channels))
 
-    [x, _] = unet_enc_block(
-        x,
-        start_neurons * (2**pool_layers),
-        enc_kernel=enc_kernel,
-        conv_layers=conv_layers,
-        pool=False,
-    )
-    x = Dropout(0.5)(x)
+        x = inp
 
-    for i in range(pool_layers):
-        x = unet_dec_block(
+        enc = []
+
+        for i in range(pool_layers):
+            [x, c] = unet_enc_block(
+                x,
+                start_neurons * (2**i),
+                enc_kernel=enc_kernel,
+                conv_layers=conv_layers,
+            )
+
+            enc.append(c)
+
+        [x, _] = unet_enc_block(
             x,
-            start_neurons * (2 ** (pool_layers - 1 - i)),
-            enc[pool_layers - 1 - i],
+            start_neurons * (2**pool_layers),
             enc_kernel=enc_kernel,
-            dec_kernel=dec_kernel,
             conv_layers=conv_layers,
+            pool=False,
         )
+        x = Dropout(0.5)(x)
 
-    o = Conv2D(
-        filters=output_channels,
-        kernel_size=(1, 1),
-        strides=(1, 1),
-        activation="softmax",
-    )(x)
+        for i in range(pool_layers):
+            x = unet_dec_block(
+                x,
+                start_neurons * (2 ** (pool_layers - 1 - i)),
+                enc[pool_layers - 1 - i],
+                enc_kernel=enc_kernel,
+                dec_kernel=dec_kernel,
+                conv_layers=conv_layers,
+            )
 
-    hyperparameters = {
-        "input_channels": input_channels,
-        "output_channels": output_channels,
-        "start_neurons": start_neurons,
-        "pool_layers": pool_layers,
-        "conv_layers": conv_layers,
-        "enc_kernel": enc_kernel,
-        "dec_kernel": dec_kernel,
-    }
+        o = Conv2D(
+            filters=self.num_classes,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation="softmax",
+        )(x)
 
-    return Model(inputs=inp, outputs=o), hyperparameters
+        hyperparameters = {
+            "input_channels": self.input_channels,
+            "num_classes": self.num_classes,
+            "start_neurons": start_neurons,
+            "pool_layers": pool_layers,
+            "conv_layers": conv_layers,
+            "enc_kernel": enc_kernel,
+            "dec_kernel": dec_kernel,
+        }
+
+        return Model(inputs=inp, outputs=o), hyperparameters

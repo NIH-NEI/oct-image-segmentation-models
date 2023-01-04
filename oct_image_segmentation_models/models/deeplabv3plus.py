@@ -4,6 +4,8 @@ from tensorflow.keras import layers, Model
 from typeguard import typechecked
 from typing import Tuple
 
+from .base_model import BaseModel
+
 
 def convolution_block(
     block_input,
@@ -57,44 +59,69 @@ def DilatedSpatialPyramidPooling(dspp_input):
 
 
 @typechecked
-def DeeplabV3Plus(
-    *, image_width: int, image_height: int, num_classes: int, **kwargs
-) -> Tuple[Model, dict]:
-    model_input = keras.Input(shape=(image_height, image_width, 3))
-    resnet50 = keras.applications.ResNet50(
-        weights="imagenet", include_top=False, input_tensor=model_input
-    )
+class DeeplabV3Plus(BaseModel):
+    def __init__(
+        self,
+        *,
+        input_channels: int,
+        num_classes: int,
+        image_height: int,
+        image_width: int,
+    ) -> None:
+        super().__init__(
+            input_channels=input_channels,
+            num_classes=num_classes,
+            image_height=image_height,
+            image_width=image_width,
+        )
 
-    x = resnet50.get_layer("conv4_block6_2_relu").output
-    x = DilatedSpatialPyramidPooling(x)
+    def build_model(
+        self,
+        **kwargs,
+    ) -> Tuple[Model, dict]:
+        model_input = keras.Input(
+            shape=(self.image_height, self.image_width, 3)
+        )
+        resnet50 = keras.applications.ResNet50(
+            weights="imagenet", include_top=False, input_tensor=model_input
+        )
 
-    input_a = layers.UpSampling2D(
-        size=(image_height // 4 // x.shape[1], image_width // 4 // x.shape[2]),
-        interpolation="bilinear",
-    )(x)
+        x = resnet50.get_layer("conv4_block6_2_relu").output
+        x = DilatedSpatialPyramidPooling(x)
 
-    input_b = resnet50.get_layer("conv2_block3_2_relu").output
-    input_b = convolution_block(input_b, num_filters=48, kernel_size=1)
+        input_a = layers.UpSampling2D(
+            size=(
+                self.image_height // 4 // x.shape[1],
+                self.image_width // 4 // x.shape[2],
+            ),
+            interpolation="bilinear",
+        )(x)
 
-    x = layers.Concatenate(axis=-1)([input_a, input_b])
-    x = convolution_block(x)
-    x = convolution_block(x)
-    x = layers.UpSampling2D(
-        size=(image_height // x.shape[1], image_width // x.shape[2]),
-        interpolation="bilinear",
-    )(x)
+        input_b = resnet50.get_layer("conv2_block3_2_relu").output
+        input_b = convolution_block(input_b, num_filters=48, kernel_size=1)
 
-    model_output = layers.Conv2D(
-        num_classes,
-        kernel_size=(1, 1),
-        padding="same",
-        activation="softmax",
-    )(x)
+        x = layers.Concatenate(axis=-1)([input_a, input_b])
+        x = convolution_block(x)
+        x = convolution_block(x)
+        x = layers.UpSampling2D(
+            size=(
+                self.image_height // x.shape[1],
+                self.image_width // x.shape[2],
+            ),
+            interpolation="bilinear",
+        )(x)
 
-    hyperparameters = {
-        "image_width": image_width,
-        "image_height": image_height,
-        "num_classes": num_classes,
-    }
+        model_output = layers.Conv2D(
+            self.num_classes,
+            kernel_size=(1, 1),
+            padding="same",
+            activation="softmax",
+        )(x)
 
-    return Model(inputs=model_input, outputs=model_output), hyperparameters
+        hyperparameters = {
+            "image_width": self.image_width,
+            "image_height": self.image_height,
+            "num_classes": self.num_classes,
+        }
+
+        return Model(inputs=model_input, outputs=model_output), hyperparameters
