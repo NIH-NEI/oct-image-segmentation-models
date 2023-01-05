@@ -33,6 +33,7 @@ class PredictionParams:
         dataset: Dataset,
         config_output_dir: Path,
         save_params: PredictionSaveParams,
+        graph_search: bool = False,
         trim_maps: bool = False,
         trim_ref_ind: int = 0,
         trim_window: tuple = (0, 0),
@@ -52,6 +53,7 @@ class PredictionParams:
         self.num_classes = self.loaded_model.output.shape[-1]
         self.config_output_dir = config_output_dir
         self.save_params = save_params
+        self.graph_search = graph_search
         self.trim_maps = trim_maps
         self.trim_ref_ind = trim_ref_ind
         self.trim_window = trim_window

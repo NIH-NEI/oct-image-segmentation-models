@@ -8,6 +8,7 @@ from matplotlib import cm
 import numpy as np
 from pathlib import Path
 from typeguard import typechecked
+from typing import Union
 
 from tensorflow.keras.utils import to_categorical
 
@@ -33,7 +34,7 @@ class PredictionOutput:
         predicted_labels: np.ndarray,
         categorical_pred: np.ndarray,
         boundary_maps: np.ndarray,
-        gs_pred_segs: np.ndarray,
+        gs_pred_segs: Union[np.ndarray, None],
     ) -> None:
         self.image = image
         self.image_name = image_name
@@ -126,47 +127,50 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
             image_output_dir,
         )
 
-        # Segment probability maps using graph search
-        log.info("Running graph search, segmenting boundary maps...")
-        num_classes = len(categorical_pred)
-        predict_image_t = np.transpose(predict_image, axes=[1, 0, 2])
-        boundary_maps_t = np.transpose(boundary_maps, axes=[0, 2, 1])
-        graph_structure = graph_search.create_graph_structure(
-            predict_image_t.shape
-        )
+        if predict_params.graph_search:
+            # Segment probability maps using graph search
+            log.info("Running graph search, segmenting boundary maps...")
+            num_classes = len(categorical_pred)
+            predict_image_t = np.transpose(predict_image, axes=[1, 0, 2])
+            boundary_maps_t = np.transpose(boundary_maps, axes=[0, 2, 1])
+            graph_structure = graph_search.create_graph_structure(
+                predict_image_t.shape
+            )
 
-        start_graph_time = time.time()
-        gs_pred_segs, _, _ = graph_search.segment_maps(
-            boundary_maps_t, None, graph_structure
-        )
+            start_graph_time = time.time()
+            gs_pred_segs, _, _ = graph_search.segment_maps(
+                boundary_maps_t, None, graph_structure
+            )
 
-        reconstructed_maps = datacon.create_area_mask(
-            predict_image_t.shape, gs_pred_segs
-        )
+            reconstructed_maps = datacon.create_area_mask(
+                predict_image_t.shape, gs_pred_segs
+            )
 
-        reconstructed_maps = to_categorical(
-            reconstructed_maps, num_classes=num_classes
-        )
-        reconstructed_maps = np.expand_dims(reconstructed_maps, axis=0)
+            reconstructed_maps = to_categorical(
+                reconstructed_maps, num_classes=num_classes
+            )
+            reconstructed_maps = np.expand_dims(reconstructed_maps, axis=0)
 
-        [gs_prediction_label, reconstructed_maps] = utils.perform_argmax(
-            reconstructed_maps
-        )
+            [gs_prediction_label, reconstructed_maps] = utils.perform_argmax(
+                reconstructed_maps
+            )
 
-        gs_prediction_label = np.transpose(np.squeeze(gs_prediction_label))
+            gs_prediction_label = np.transpose(np.squeeze(gs_prediction_label))
 
-        end_graph_time = time.time()
-        graph_time = end_graph_time - start_graph_time
+            end_graph_time = time.time()
+            graph_time = end_graph_time - start_graph_time
 
-        save_graph_based_prediction_results(
-            predict_params,
-            predict_image,
-            image_name,
-            gs_prediction_label,
-            gs_pred_segs,
-            graph_time,
-            image_output_dir,
-        )
+            save_graph_based_prediction_results(
+                predict_params,
+                predict_image,
+                image_name,
+                gs_prediction_label,
+                gs_pred_segs,
+                graph_time,
+                image_output_dir,
+            )
+        else:
+            gs_pred_segs = None
 
         prediction_output = PredictionOutput(
             image=predict_image,
