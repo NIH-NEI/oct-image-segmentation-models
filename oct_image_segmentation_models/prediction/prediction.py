@@ -230,6 +230,13 @@ def save_image_prediction_results(
                     cmap=cm.Blues,
                 )
 
+    np.savetxt(
+        output_dir / Path("segmentation_map.csv"),
+        predicted_labels,
+        fmt="%d",
+        delimiter=",",
+    )
+
     if pred_params.save_params.predicted_labels is True:
         hdf5_file.create_dataset(
             "predicted_labels", data=predicted_labels, dtype="uint8"
@@ -238,7 +245,7 @@ def save_image_prediction_results(
         if pred_params.save_params.png_images is True:
             plotting.save_image_plot(
                 predicted_labels,
-                output_dir / Path("non_gs_predicted_segmentation_map.png"),
+                output_dir / Path("segmentation_map.png"),
                 cmap=plotting.colors.ListedColormap(
                     plotting.region_colours, N=len(categorical_pred)
                 ),

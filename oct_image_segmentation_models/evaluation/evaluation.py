@@ -503,7 +503,7 @@ def _save_image_evaluation_results(
 
     if eval_params.save_params.predicted_labels is True:
         hdf5_file.create_dataset(
-            "non_gs_predicted_segmentation_map",
+            "predicted_segmentation_map",
             data=predicted_labels,
             dtype="uint8",
         )
@@ -511,7 +511,7 @@ def _save_image_evaluation_results(
         if eval_params.save_params.png_images is True:
             plotting.save_image_plot(
                 predicted_labels,
-                output_dir / Path("non_gs_predicted_segmentation_map.png"),
+                output_dir / Path("predicted_segmentation_map.png"),
                 cmap=plotting.colors.ListedColormap(
                     plotting.region_colours, N=len(categorical_pred)
                 ),
@@ -883,13 +883,13 @@ def _calc_overall_dataset_errors(
         save_textfile.write(",".join([f"{e:.7f}" for e in sd_metric]) + "\n")
 
     if EVALUATION_METRIC_DICE_CLASSES in metrics:
-        save_metric(f"non_gs_{EVALUATION_METRIC_DICE_CLASSES}", dices_classes)
+        save_metric(f"{EVALUATION_METRIC_DICE_CLASSES}", dices_classes)
 
     if EVALUATION_METRIC_DICE_MACRO in metrics:
-        save_metric(f"non_gs_{EVALUATION_METRIC_DICE_MACRO}", dices_macro)
+        save_metric(f"{EVALUATION_METRIC_DICE_MACRO}", dices_macro)
 
     if EVALUATION_METRIC_DICE_MICRO in metrics:
-        save_metric(f"non_gs_{EVALUATION_METRIC_DICE_MICRO}", dices_micro)
+        save_metric(f"{EVALUATION_METRIC_DICE_MICRO}", dices_micro)
 
     if EVALUATION_METRIC_AVERAGE_SURFACE_DISTANCE in metrics:
         save_metric("average_surface_distances", average_surface_distances)
