@@ -10,9 +10,11 @@ from tensorflow.keras.layers import (
     UpSampling2D,
 )
 from typeguard import typechecked
-from typing import Callable, Tuple
+from typing import Callable
 
-from .base_model import BaseModel
+from oct_image_segmentation_models.models.base_model import BaseModel
+
+UNET_MODEL_NAME = "unet"
 
 
 def batch_activate(x):
@@ -66,6 +68,11 @@ class UNet(BaseModel):
         num_classes: int,
         image_height: int,
         image_width: int,
+        start_neurons: int = 8,
+        pool_layers: int = 4,
+        conv_layers: int = 2,
+        enc_kernel: tuple = (3, 3),
+        dec_kernel: tuple = (2, 2),
     ) -> None:
         super().__init__(
             input_channels=input_channels,
@@ -73,55 +80,63 @@ class UNet(BaseModel):
             image_height=image_height,
             image_width=image_width,
         )
+        self.start_neurons = start_neurons
+        self.pool_layers = pool_layers
+        self.conv_layers = conv_layers
+        self.enc_kernel = enc_kernel
+        self.dec_kernel = dec_kernel
 
     def get_preprocess_input_fn(self) -> Callable:
         def preprocess_input_inner(x):
             return x / 255.0
+
         return preprocess_input_inner
 
-    def build_model(
-        self,
-        *,
-        start_neurons: int = 8,
-        pool_layers: int = 4,
-        conv_layers: int = 2,
-        enc_kernel: tuple = (3, 3),
-        dec_kernel: tuple = (2, 2),
-        **kwargs,
-    ) -> Tuple[Model, dict]:
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "start_neurons": self.start_neurons,
+            "pool_layers": self.pool_layers,
+            "conv_layers": self.conv_layers,
+            "enc_kernel": self.enc_kernel,
+            "dec_kernel": self.dec_kernel,
+        })
+        return config
+
+    def build_model(self) -> Model:
         inp = Input(batch_shape=(None, None, None, self.input_channels))
 
         x = inp
 
         enc = []
 
-        for i in range(pool_layers):
+        for i in range(self.pool_layers):
             [x, c] = unet_enc_block(
                 x,
-                start_neurons * (2**i),
-                enc_kernel=enc_kernel,
-                conv_layers=conv_layers,
+                self.start_neurons * (2**i),
+                enc_kernel=self.enc_kernel,
+                conv_layers=self.conv_layers,
             )
 
             enc.append(c)
 
         [x, _] = unet_enc_block(
             x,
-            start_neurons * (2**pool_layers),
-            enc_kernel=enc_kernel,
-            conv_layers=conv_layers,
+            self.start_neurons * (2**self.pool_layers),
+            enc_kernel=self.enc_kernel,
+            conv_layers=self.conv_layers,
             pool=False,
         )
         x = Dropout(0.5)(x)
 
-        for i in range(pool_layers):
+        for i in range(self.pool_layers):
             x = unet_dec_block(
                 x,
-                start_neurons * (2 ** (pool_layers - 1 - i)),
-                enc[pool_layers - 1 - i],
-                enc_kernel=enc_kernel,
-                dec_kernel=dec_kernel,
-                conv_layers=conv_layers,
+                self.start_neurons * (2 ** (self.pool_layers - 1 - i)),
+                enc[self.pool_layers - 1 - i],
+                enc_kernel=self.enc_kernel,
+                dec_kernel=self.dec_kernel,
+                conv_layers=self.conv_layers,
             )
 
         o = Conv2D(
@@ -131,14 +146,8 @@ class UNet(BaseModel):
             activation="softmax",
         )(x)
 
-        hyperparameters = {
-            "input_channels": self.input_channels,
-            "num_classes": self.num_classes,
-            "start_neurons": start_neurons,
-            "pool_layers": pool_layers,
-            "conv_layers": conv_layers,
-            "enc_kernel": enc_kernel,
-            "dec_kernel": dec_kernel,
-        }
-
-        return Model(inputs=inp, outputs=o), hyperparameters
+        return Model(
+            inputs=inp,
+            outputs=o,
+            name=UNET_MODEL_NAME,
+        )

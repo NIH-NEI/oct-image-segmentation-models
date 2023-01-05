@@ -17,6 +17,7 @@ from oct_image_segmentation_models.common import (
     utils,
 )
 from oct_image_segmentation_models.min_path_processing import graph_search
+from oct_image_segmentation_models.models import get_model_class
 from oct_image_segmentation_models.prediction.prediction_parameters import (
     PredictionParams,
 )
@@ -53,6 +54,17 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
 
     prediction_outputs = []
 
+    # Build Model Container Class from 'loaded_model' name to preprocess
+    # the images
+    try:
+        model_class = get_model_class(predict_params.loaded_model.name)
+    except ValueError as e:
+        log.error(e)
+        exit(1)
+
+    model_container = model_class(**predict_params.model_config)
+    model_preprocessing_input_fn = model_container.get_preprocess_input_fn()
+
     # pass images to network one at a time
     for i, (predict_image, image_name, image_output_dir) in enumerate(
         zip(predict_images, predict_image_names, predict_image_output_dirs)
@@ -61,7 +73,7 @@ def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
         start_predict_time = time.time()
         predicted_probs = predict_params.loaded_model.predict(
             np.expand_dims(
-                predict_image / 255, axis=0
+                model_preprocessing_input_fn(predict_image), axis=0
             ),  # keras works with batches
             verbose=2,
             batch_size=1,

@@ -28,7 +28,8 @@ class PredictionParams:
     def __init__(
         self,
         model_path: Union[Path, PurePosixPath],
-        mlflow_tracking_uri: str | None,
+        mlflow_tracking_uri: Union[str, None],
+        mlflow_run_uuid: Union[str, None],
         dataset: Dataset,
         config_output_dir: Path,
         save_params: PredictionSaveParams,
@@ -39,12 +40,14 @@ class PredictionParams:
     ) -> None:
         self.model_path = model_path
         self.mlflow_tracking_uri = mlflow_tracking_uri
+        self.mlflow_run_uuid = mlflow_run_uuid
         self.dataset = dataset
 
         self.mlflow_tracking_uri = mlflow_tracking_uri
-        self.loaded_model = utils.load_model(
+        self.loaded_model, self.model_config = utils.load_model_and_config(
             model_path,
             mlflow_tracking_uri=mlflow_tracking_uri,
+            mlflow_run_uuid=mlflow_run_uuid,
         )
         self.num_classes = self.loaded_model.output.shape[-1]
         self.config_output_dir = config_output_dir

@@ -2,6 +2,7 @@ import os
 import sys
 
 import h5py
+import json
 import logging as log
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -38,12 +39,15 @@ from oct_image_segmentation_models.training.training_parameters import (
 def save_training_params_file(
     save_foldername: Path,
     model_summary: str,
+    model_config: dict,
     training_dataset_md5: str,
     class_weight: Union[np.ndarray, None],
     timestamp,
     train_params: TrainingParams,
     opt,
 ):
+    with open(save_foldername / Path("model_config.json"), "w") as config_file:
+        json.dump(model_config, config_file)
     config_filename = save_foldername / Path("training_params.hdf5")
 
     config_file = h5py.File(config_filename, "w")
@@ -141,7 +145,10 @@ def save_training_params_file(
         else:
             config_file.attrs["opt_param: " + key] = opt_config[key]
 
+    config_file.close()
 
+
+@typechecked
 def train_model(
     training_params: tparams.TrainingParams,
     mlflow_params: MLflowParameters = None,
@@ -270,11 +277,10 @@ def train_model(
                 num_classes=num_classes,
                 image_height=image_height,
                 image_width=image_width,
+                **model_hyperparameters,
             )
 
-            model, model_hyperparameters = model_container.build_model(
-                **model_hyperparameters
-            )
+            model = model_container.build_model()
 
             model.compile(
                 optimizer=optimizer,
@@ -294,7 +300,7 @@ def train_model(
     mlflow.log_params(
         {
             "model_architecture": training_params.model_architecture,
-            "model_hyperparameters": model_hyperparameters,
+            "model_config": model_container.get_config(),
             "training_dataset_path": training_dataset_path,
             "training_dataset_md5": training_dataset_md5,
             "augmentation_mode": training_params.aug_mode,
@@ -362,6 +368,7 @@ def train_model(
     save_training_params_file(
         save_foldername,
         "\n".join(model_summary),
+        model_container.get_config(),
         training_dataset_md5,
         c_weight,
         timestamp,

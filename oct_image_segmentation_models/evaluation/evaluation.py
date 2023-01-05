@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 import h5py
+import logging as log
 from matplotlib import cm
 import numpy as np
 from pathlib import Path
@@ -12,6 +13,7 @@ from typeguard import typechecked
 from typing import Union
 
 from oct_image_segmentation_models.min_path_processing import utils
+from oct_image_segmentation_models.models import get_model_class
 from oct_image_segmentation_models.evaluation.evaluation_parameters import (
     EvaluationParameters,
 )
@@ -95,6 +97,17 @@ def evaluate_model(
 
     eval_outputs = []
 
+    # Build Model Container Class from 'loaded_model' name to preprocess
+    # the images
+    try:
+        model_class = get_model_class(eval_params.loaded_model.name)
+    except ValueError as e:
+        log.error(e)
+        exit(1)
+
+    model_container = model_class(**eval_params.model_config)
+    model_preprocessing_input_fn = model_container.get_preprocess_input_fn()
+
     #  pass images to network one at a time
     for ind in range(eval_images.shape[0]):
         eval_image = eval_images[ind]
@@ -119,7 +132,7 @@ def evaluate_model(
         start_predict_time = time.time()
         predicted_probs = eval_params.loaded_model.predict(
             np.expand_dims(
-                eval_image / 255, axis=0
+                model_preprocessing_input_fn(eval_image), axis=0
             ),  # keras works with batches
             verbose=2,
             batch_size=1,

@@ -1,5 +1,7 @@
+import ast
 import datetime
 import hashlib
+import json
 import keras
 import logging as log
 import mlflow
@@ -10,7 +12,7 @@ import tensorflow as tf
 from typeguard import typechecked
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
-from typing import Union
+from typing import Tuple, Union
 
 from oct_image_segmentation_models.common import custom_losses, custom_metrics
 
@@ -23,14 +25,15 @@ def get_timestamp():
 
 
 @typechecked
-def load_model(
+def load_model_and_config(
     model_path: Union[Path, PurePosixPath], **kwargs
-) -> keras.engine.functional.Functional:
+) -> Tuple[keras.engine.functional.Functional, dict]:
     custom_objects = dict(
         list(custom_losses.custom_loss_objects.items())
         + list(custom_metrics.training_monitor_metric_objects.items())
     )
     mlflow_tracking_uri = kwargs.pop("mlflow_tracking_uri", {})
+    mlflow_run_uuid = kwargs.pop("mlflow_run_uuid", {})
 
     if mlflow_tracking_uri:
         mlflow.set_tracking_uri(mlflow_tracking_uri)
@@ -42,6 +45,9 @@ def load_model(
                     "compile": False,
                 },
             )
+            run = mlflow.get_run(mlflow_run_uuid)
+            model_config = run.data.params.get("model_config")
+            model_config = ast.literal_eval(model_config)
         except MlflowException as exc:
             if exc.get_http_status_code() == 401:
                 log.error(
@@ -56,7 +62,8 @@ def load_model(
         loaded_model = tf.keras.models.load_model(
             model_path, custom_objects=custom_objects
         )
-    return loaded_model
+        model_config = json.load(model_path.parent / Path("model_config.json"))
+    return loaded_model, model_config
 
 
 def convert_maps_uint8(prob_maps):

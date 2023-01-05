@@ -2,9 +2,11 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, Model
 from typeguard import typechecked
-from typing import Callable, Tuple
+from typing import Callable
 
-from .base_model import BaseModel
+from oct_image_segmentation_models.models.base_model import BaseModel
+
+DEEPLABV3PLUS_MODEL_NAME = "deeplabv3plus"
 
 
 def convolution_block(
@@ -75,13 +77,16 @@ class DeeplabV3Plus(BaseModel):
             image_width=image_width,
         )
 
+    def get_config(self) -> dict:
+        return super().get_config()
+
     def get_preprocess_input_fn(self) -> Callable:
         return keras.applications.resnet50.preprocess_input
 
     def build_model(
         self,
         **kwargs,
-    ) -> Tuple[Model, dict]:
+    ) -> Model:
         model_input = keras.Input(
             shape=(self.image_height, self.image_width, 3)
         )
@@ -121,10 +126,8 @@ class DeeplabV3Plus(BaseModel):
             activation="softmax",
         )(x)
 
-        hyperparameters = {
-            "image_width": self.image_width,
-            "image_height": self.image_height,
-            "num_classes": self.num_classes,
-        }
-
-        return Model(inputs=model_input, outputs=model_output), hyperparameters
+        return Model(
+            inputs=model_input,
+            outputs=model_output,
+            name=DEEPLABV3PLUS_MODEL_NAME,
+        )

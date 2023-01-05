@@ -1,7 +1,7 @@
 import abc
 from tensorflow.keras import Model
 from typeguard import typechecked
-from typing import Callable, Tuple
+from typing import Callable
 
 
 @typechecked
@@ -20,8 +20,16 @@ class BaseModel:
         self.image_width = image_width
 
     @abc.abstractclassmethod
-    def build_model(self, **kwargs) -> Tuple[Model, dict]:
+    def build_model(self) -> Model:
         raise NotImplementedError("Must be implemented in subclasses.")
+
+    def get_config(self) -> dict:
+        return {
+            "input_channels": self.input_channels,
+            "num_classes": self.num_classes,
+            "image_height": self.image_height,
+            "image_width": self.image_width,
+        }
 
     @abc.abstractclassmethod
     def get_preprocess_input_fn(self) -> Callable:

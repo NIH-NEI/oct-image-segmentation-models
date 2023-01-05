@@ -5,9 +5,10 @@ from . import base_model
 from . import deeplabv3plus
 from . import unet
 
+
 model_name_map = {
-    "deeplabv3plus": deeplabv3plus.DeeplabV3Plus,
-    "unet": unet.UNet,
+    deeplabv3plus.DEEPLABV3PLUS_MODEL_NAME: deeplabv3plus.DeeplabV3Plus,
+    unet.UNET_MODEL_NAME: unet.UNet,
 }
 
 
