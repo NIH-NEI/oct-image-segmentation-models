@@ -832,23 +832,23 @@ def _calc_overall_dataset_errors(
                 / Path(GS_EVALUATION_RESULTS_FILENAME)
             )
             gs_eval_file = h5py.File(gs_eval_filename, "r")
-            file_errors = gs_eval_file["errors"]
 
-            if errors is None:
-                errors = np.expand_dims(file_errors, 0)
-            else:
-                errors = np.concatenate(
-                    (errors, np.expand_dims(file_errors, 0)), 0
-                )
+            errors = concat_metric_from_hdf5(
+                gs_eval_file,
+                "errors",
+                errors,
+            )
 
             if EVALUATION_METRIC_DICE_CLASSES in metrics:
                 gs_dices_classes = concat_metric_from_hdf5(
-                    eval_file, EVALUATION_METRIC_DICE_CLASSES, gs_dices_classes
+                    gs_eval_file,
+                    EVALUATION_METRIC_DICE_CLASSES,
+                    gs_dices_classes,
                 )
 
             if EVALUATION_METRIC_DICE_MACRO in metrics:
                 gs_dices_macro = concat_metric_from_hdf5(
-                    eval_file, EVALUATION_METRIC_DICE_MACRO, gs_dices_macro
+                    gs_eval_file, EVALUATION_METRIC_DICE_MACRO, gs_dices_macro
                 )
 
             if EVALUATION_METRIC_DICE_MICRO in metrics:
@@ -907,6 +907,18 @@ def _calc_overall_dataset_errors(
 
     # Boundary Errors
     if graph_search:
+        # Dice Coef after Graph Search
+        if EVALUATION_METRIC_DICE_CLASSES in metrics:
+            save_metric(
+                f"gs_{EVALUATION_METRIC_DICE_CLASSES}", gs_dices_classes
+            )
+
+        if EVALUATION_METRIC_DICE_MACRO in metrics:
+            save_metric(f"gs_{EVALUATION_METRIC_DICE_MACRO}", gs_dices_macro)
+
+        if EVALUATION_METRIC_DICE_MICRO in metrics:
+            save_metric(f"gs_{EVALUATION_METRIC_DICE_MICRO}", gs_dices_micro)
+
         mean_abs_errors_cols = np.nanmean(np.abs(errors), axis=0)
         mean_abs_errors_samples = np.nanmean(np.abs(errors), axis=2)
         sd_abs_errors_samples = np.nanstd(np.abs(errors), axis=2)
@@ -957,18 +969,6 @@ def _calc_overall_dataset_errors(
 
         save_textfile.write("SD errors,")
         save_textfile.write(",".join([f"{e:.7f}" for e in sd_errors]) + "\n")
-
-        # Dice Coef after Graph Search
-        if EVALUATION_METRIC_DICE_CLASSES in metrics:
-            save_metric(
-                f"gs_{EVALUATION_METRIC_DICE_CLASSES}", gs_dices_classes
-            )
-
-        if EVALUATION_METRIC_DICE_MACRO in metrics:
-            save_metric(f"gs_{EVALUATION_METRIC_DICE_MACRO}", gs_dices_macro)
-
-        if EVALUATION_METRIC_DICE_MICRO in metrics:
-            save_metric(f"gs_{EVALUATION_METRIC_DICE_MICRO}", gs_dices_micro)
 
     save_file.close()
     save_textfile.close()
