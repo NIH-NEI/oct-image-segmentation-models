@@ -200,7 +200,7 @@ def train_model(
 
     _, image_height, image_width, input_channels = train_images.shape
     log.info(
-        f"Detected input mage dimensions (h x w): {image_height} x "
+        f"Detected input image dimensions (h x w): {image_height} x "
         f"{image_width}."
     )
     log.info(f"Detected {input_channels} input channels.")
