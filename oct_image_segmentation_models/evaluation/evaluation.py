@@ -487,6 +487,13 @@ def _save_image_evaluation_results(
     with open(output_dir / "input_image_name.txt", "w") as f:
         f.write(str(image_name))
 
+    np.savetxt(
+        output_dir / Path("predicted_segmentation_map.csv"),
+        predicted_labels,
+        fmt="%d",
+        delimiter=",",
+    )
+
     hdf5_file = h5py.File(output_dir / Path(EVALUATION_RESULTS_FILENAME), "w")
     if eval_params.save_params.categorical_pred is True:
         hdf5_file.create_dataset(
@@ -527,11 +534,22 @@ def _save_image_evaluation_results(
         vmax=255,
     )
 
-    hdf5_file.create_dataset("eval_labels", data=eval_labels, dtype="uint8")
+    eval_labels = np.argmax(eval_labels, axis=2)
+
+    hdf5_file.create_dataset(
+        "eval_labels", data=eval_labels, dtype="uint8"
+    )
+
+    np.savetxt(
+        output_dir / Path("ground_truth_segmentation_map.csv"),
+        eval_labels,
+        fmt="%d",
+        delimiter=",",
+    )
 
     plotting.save_image_plot(
-        np.argmax(eval_labels, axis=2),
-        output_dir / Path("truth_segmentation_map.png"),
+        eval_labels,
+        output_dir / Path("ground_truth_segmentation_map.png"),
         cmap=plotting.colors.ListedColormap(
             plotting.region_colours, N=len(categorical_pred)
         ),
@@ -639,7 +657,7 @@ def _save_graph_based_evaluation_results(
     )
 
     np.savetxt(
-        output_dir / Path("gs_segmentation_map.csv"),
+        output_dir / Path("gs_predicted_segmentation_map.csv"),
         gs_eval_label,
         fmt="%d",
         delimiter=",",
