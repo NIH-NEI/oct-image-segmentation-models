@@ -25,6 +25,7 @@ def get_install_requires():
         "scikit-learn==1.1.3",
         "tensorflow==2.9.0",
         "typeguard==2.13.3",
+        "Surface-Distance-Based-Measures==0.1",
     ]
 
 
