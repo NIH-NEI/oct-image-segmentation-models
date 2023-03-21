@@ -8,7 +8,7 @@ from matplotlib import cm
 import numpy as np
 from pathlib import Path
 from typeguard import typechecked
-from typing import Union
+from typing import List, Union
 
 from tensorflow.keras.utils import to_categorical
 
@@ -45,7 +45,7 @@ class PredictionOutput:
         self.gs_pred_segs = gs_pred_segs
 
 
-def predict(predict_params: PredictionParams) -> list[PredictionOutput]:
+def predict(predict_params: PredictionParams) -> List[PredictionOutput]:
     dataset = predict_params.dataset
     predict_images = dataset.images
     predict_image_names = dataset.image_names

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 from pathlib import Path
+from typing import List, Optional
 from typeguard import typechecked
 
 
@@ -20,9 +21,9 @@ class Dataset:
     def __init__(
         self,
         images: np.ndarray,
-        image_masks: np.ndarray | None,
-        image_names: list[Path],
-        image_output_dirs: list[Path]
+        image_masks: Optional[np.ndarray],
+        image_names: List[Path],
+        image_output_dirs: List[Path]
     ):
         self.images = images
         self.image_masks = image_masks

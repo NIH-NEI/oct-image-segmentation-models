@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 from pathlib import Path
-
 from typeguard import typechecked
+from typing import List, Tuple
 
 
 def load_training_data(hdf5_data_file):
@@ -23,7 +23,7 @@ def load_validation_data(hdf5_data_file):
 @typechecked
 def load_testing_data(
     hdf5_data_file,
-) -> tuple[np.ndarray, np.ndarray, list[Path]]:
+) -> Tuple[np.ndarray, np.ndarray, List[Path]]:
     test_images = hdf5_data_file["test_images"][:]
     test_labels = hdf5_data_file["test_labels"][:]
     test_image_paths = [

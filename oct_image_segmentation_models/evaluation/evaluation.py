@@ -10,7 +10,7 @@ from pathlib import Path
 from tensorflow.keras.utils import to_categorical
 import time
 from typeguard import typechecked
-from typing import Union
+from typing import List, Optional
 
 from oct_image_segmentation_models.min_path_processing import utils
 from oct_image_segmentation_models.models import get_model_class
@@ -48,12 +48,12 @@ class EvaluationOutput:
         predicted_labels: np.ndarray,
         categorical_pred: np.ndarray,
         boundary_maps: np.ndarray,
-        gs_pred_segs: Union[np.ndarray, None],
-        errors: Union[np.ndarray, None],
-        mean_abs_err: Union[np.ndarray, None],
-        mean_err: Union[np.ndarray, None],
-        abs_err_sd: Union[np.ndarray, None],
-        err_sd: Union[np.ndarray, None],
+        gs_pred_segs: Optional[np.ndarray],
+        errors: Optional[np.ndarray],
+        mean_abs_err: Optional[np.ndarray],
+        mean_err: Optional[np.ndarray],
+        abs_err_sd: Optional[np.ndarray],
+        err_sd: Optional[np.ndarray],
     ) -> None:
         self.image = image
         self.image_name = image_name
@@ -73,7 +73,7 @@ class EvaluationOutput:
 @typechecked
 def evaluate_model(
     eval_params: EvaluationParameters,
-) -> list[EvaluationOutput]:
+) -> List[EvaluationOutput]:
 
     test_dataset_file = h5py.File(eval_params.test_dataset_path, "r")
 
@@ -473,13 +473,13 @@ def _save_image_evaluation_results(
     categorical_pred: np.ndarray,
     eval_labels: np.ndarray,
     eval_segs: np.ndarray,
-    dice_classes: Union[np.ndarray, None],
-    dice_macro: Union[np.ndarray, None],
-    dice_micro: Union[np.ndarray, None],
-    average_surface_distances: Union[np.ndarray, None],
-    average_surface_distances_gt_to_pred: Union[np.ndarray, None],
-    average_surface_distances_pred_to_gt: Union[np.ndarray, None],
-    hausdorff_distances: Union[np.ndarray, None],
+    dice_classes: Optional[np.ndarray],
+    dice_macro: Optional[np.ndarray],
+    dice_micro: Optional[np.ndarray],
+    average_surface_distances: Optional[np.ndarray],
+    average_surface_distances_gt_to_pred: Optional[np.ndarray],
+    average_surface_distances_pred_to_gt: Optional[np.ndarray],
+    hausdorff_distances: Optional[np.ndarray],
     predict_time: float,
     output_dir: Path,
 ):
@@ -632,9 +632,9 @@ def _save_graph_based_evaluation_results(
     truth_label_segs: np.ndarray,
     gs_eval_label: np.ndarray,
     gs_pred_segs: np.ndarray,
-    gs_dice_classes: Union[np.ndarray, None],
-    gs_dice_macro: Union[np.ndarray, None],
-    gs_dice_micro: Union[np.ndarray, None],
+    gs_dice_classes: Optional[np.ndarray],
+    gs_dice_macro: Optional[np.ndarray],
+    gs_dice_micro: Optional[np.ndarray],
     errors: np.ndarray,
     mean_abs_err: np.ndarray,
     mean_err: np.ndarray,
@@ -756,7 +756,7 @@ def save_eval_config_file(eval_params: EvaluationParameters):
 
 @typechecked
 def _calc_overall_dataset_errors(
-    eval_params: EvaluationParameters, eval_image_names: list[Path]
+    eval_params: EvaluationParameters, eval_image_names: List[Path]
 ):
     """
     'errors' shape: (# of images, number of boundaries, image width)
@@ -794,7 +794,7 @@ def _calc_overall_dataset_errors(
         def concat_metric_from_hdf5(
             hdf5_file: h5py.File,
             metric_name: str,
-            metric: Union[np.ndarray, None],
+            metric: Optional[np.ndarray],
         ) -> np.ndarray:
             file_metric = hdf5_file[f"{metric_name}"][:]
             if metric is None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging as log
 from pathlib import Path
 from typeguard import typechecked
-from typing import Union
+from typing import List, Optional
 
 from oct_image_segmentation_models.common import EVALUATION_METRICS, utils
 
@@ -41,13 +41,13 @@ class EvaluationParameters:
     def __init__(
         self,
         model_path: Path,
-        mlflow_tracking_uri: Union[str, None],
-        mlflow_run_uuid: Union[str, None],
+        mlflow_tracking_uri: Optional[str],
+        mlflow_run_uuid: Optional[str],
         test_dataset_path: Path,
         save_foldername: Path,
         save_params: EvaluationSaveParams,
         graph_search: bool,
-        metrics: list[str],
+        metrics: List[str],
         gsgrad=1,
         dice_errors: bool = True,
         binarize: bool = True,
