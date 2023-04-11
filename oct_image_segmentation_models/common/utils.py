@@ -1,4 +1,3 @@
-import ast
 import datetime
 import hashlib
 import json
@@ -46,8 +45,10 @@ def load_model_and_config(
                 },
             )
             run = mlflow.get_run(mlflow_run_uuid)
-            model_config = run.data.params.get("model_config")
-            model_config = ast.literal_eval(model_config)
+            artifact_uri = run.info.artifact_uri
+            model_config = mlflow.artifacts.load_dict(
+                artifact_uri + "/model/data/model_config.json"
+            )
         except MlflowException as exc:
             if exc.get_http_status_code() == 401:
                 log.error(
@@ -60,9 +61,10 @@ def load_model_and_config(
             exit(1)
     else:
         loaded_model = tf.keras.models.load_model(
-            model_path, custom_objects=custom_objects
+            model_path, custom_objects=custom_objects, compile=False,
         )
-        model_config = json.load(model_path.parent / Path("model_config.json"))
+        with open(model_path.parent / Path("model_config.json"), "r") as config_file:
+            model_config = json.load(config_file)
     return loaded_model, model_config
 
 

@@ -300,7 +300,6 @@ def train_model(
     mlflow.log_params(
         {
             "model_architecture": training_params.model_architecture,
-            "model_config": model_container.get_config(),
             "training_dataset_path": training_dataset_path,
             "training_dataset_md5": training_dataset_md5,
             "augmentation_mode": training_params.aug_mode,
@@ -311,6 +310,10 @@ def train_model(
             "loss_fn_class_weight": training_params.class_weight,
             "class_weight_array": c_weight,
         }
+    )
+
+    mlflow.log_dict(
+        model_container.get_config(), "model/data/model_config.json"
     )
 
     if aug_val is False:

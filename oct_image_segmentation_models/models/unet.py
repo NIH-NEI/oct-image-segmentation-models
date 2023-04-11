@@ -10,7 +10,7 @@ from tensorflow.keras.layers import (
     UpSampling2D,
 )
 from typeguard import typechecked
-from typing import Callable
+from typing import Callable, Union
 
 from oct_image_segmentation_models.models.base_model import BaseModel
 
@@ -71,8 +71,8 @@ class UNet(BaseModel):
         start_neurons: int = 8,
         pool_layers: int = 4,
         conv_layers: int = 2,
-        enc_kernel: tuple = (3, 3),
-        dec_kernel: tuple = (2, 2),
+        enc_kernel: Union[list, tuple] = (3, 3),
+        dec_kernel: Union[list, tuple] = (2, 2),
     ) -> None:
         super().__init__(
             input_channels=input_channels,
@@ -83,8 +83,8 @@ class UNet(BaseModel):
         self.start_neurons = start_neurons
         self.pool_layers = pool_layers
         self.conv_layers = conv_layers
-        self.enc_kernel = enc_kernel
-        self.dec_kernel = dec_kernel
+        self.enc_kernel = tuple(enc_kernel)
+        self.dec_kernel = tuple(dec_kernel)
 
     def get_preprocess_input_fn(self) -> Callable:
         def preprocess_input_inner(x):
@@ -94,13 +94,15 @@ class UNet(BaseModel):
 
     def get_config(self) -> dict:
         config = super().get_config()
-        config.update({
-            "start_neurons": self.start_neurons,
-            "pool_layers": self.pool_layers,
-            "conv_layers": self.conv_layers,
-            "enc_kernel": self.enc_kernel,
-            "dec_kernel": self.dec_kernel,
-        })
+        config.update(
+            {
+                "start_neurons": self.start_neurons,
+                "pool_layers": self.pool_layers,
+                "conv_layers": self.conv_layers,
+                "enc_kernel": self.enc_kernel,
+                "dec_kernel": self.dec_kernel,
+            }
+        )
         return config
 
     def build_model(self) -> Model:
