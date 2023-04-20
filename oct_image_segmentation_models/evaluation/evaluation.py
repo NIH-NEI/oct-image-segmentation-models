@@ -888,6 +888,7 @@ def _calc_overall_dataset_errors(
     def save_metric(metric_name: str, metric: np.ndarray):
         save_file[metric_name] = metric
 
+        metric[metric == np.inf] = np.nan
         mean_metric = np.nanmean(metric, axis=0)
         sd_metric = np.nanstd(metric, axis=0)
 
