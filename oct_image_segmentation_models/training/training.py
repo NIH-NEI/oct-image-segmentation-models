@@ -267,7 +267,6 @@ def train_model(
         log.info(f"Starting training from scratch {model_architecture} model")
 
         with strategy.scope():
-            # __import__('ipdb').set_trace(context=10)
             try:
                 model_class = get_model_class(
                     training_params.model_architecture,
@@ -429,8 +428,6 @@ def train_model(
     )
 
     model.summary()
-    print('FIT~~~~~~~~~~~~~~~')
-    # mlflow.pytorch.autolog()
     model.fit(
         x=train_gen,
         validation_data=val_gen,
@@ -438,5 +435,4 @@ def train_model(
         callbacks=callbacks_list,
         verbose=1,
     )
-    print('END RUN~~~~~~~~~~~~~~~')
     mlflow.end_run()
