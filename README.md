@@ -58,7 +58,11 @@ To train the model:
 
 ### Evaluation
 
-To evaluate the model the function `eval_model()` int `unet/model/evaluation.py` should be invoked. This function takes a `EvalParameters` object (see `unet/model/evaluation_parameters.py`). The `evaluation-scripts` directory contains an example on how to evaluate a model. Usage:
+To evaluate the model the function `eval_model()` int
+`unet/model/evaluation.py` should be invoked. This function takes a
+`EvalParameters` object (see `unet/model/evaluation_parameters.py`). The
+`evaluation-scripts` directory contains an example on how to evaluate a model.
+Usage:
 
 `python3 evaluate_model.py <path/to/model/file> </path/to/test/dataset/file> </output/dir/path>`
 

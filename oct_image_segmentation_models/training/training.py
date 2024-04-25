@@ -1,3 +1,4 @@
+import atexit
 import os
 import sys
 
@@ -206,6 +207,8 @@ def train_model(
     log.info(f"Detected {input_channels} input channels.")
 
     strategy = tf.distribute.MirroredStrategy()
+    atexit.register(strategy._extended._collective_ops._pool.close) # type: ignore
+
     log.info(f"Number of devices: {strategy.num_replicas_in_sync}")
 
     optimizer_con = training_params.opt_con
@@ -264,6 +267,7 @@ def train_model(
         log.info(f"Starting training from scratch {model_architecture} model")
 
         with strategy.scope():
+            # __import__('ipdb').set_trace(context=10)
             try:
                 model_class = get_model_class(
                     training_params.model_architecture,
@@ -425,6 +429,8 @@ def train_model(
     )
 
     model.summary()
+    print('FIT~~~~~~~~~~~~~~~')
+    # mlflow.pytorch.autolog()
     model.fit(
         x=train_gen,
         validation_data=val_gen,
@@ -432,4 +438,5 @@ def train_model(
         callbacks=callbacks_list,
         verbose=1,
     )
+    print('END RUN~~~~~~~~~~~~~~~')
     mlflow.end_run()
