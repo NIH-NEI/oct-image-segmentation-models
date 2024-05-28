@@ -134,9 +134,7 @@ class BatchGenerator:
 
         self.sample_shuffle = np.arange(self.total_full_images)
 
-        self.num_batches = int(
-            floor(1.0 * self.total_samples / self.batch_size)
-        )
+        self.num_batches = int(floor(1.0 * self.total_samples / self.batch_size))
         self.handle_epoch_end()
 
     def setup_augnofly_data(self):
@@ -210,9 +208,7 @@ class BatchGenerator:
             # apply augmentation
             aug_image, aug_label = aug_fn(raw_image, raw_label, aug_arg)
 
-            self.aug_counter += (
-                1  # move to the next augmentation ready for next time
-            )
+            self.aug_counter += 1  # move to the next augmentation ready for next time
             if self.aug_counter == self.total_augs:
                 self.aug_counter = 0  # reset the aug_ind, we are done with
                 # them all for this particular image

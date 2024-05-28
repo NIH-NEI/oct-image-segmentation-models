@@ -77,15 +77,11 @@ def evaluate_model(
 
     test_dataset_file = h5py.File(eval_params.test_dataset_path, "r")
 
-    eval_images, eval_labels, eval_image_names = dl.load_testing_data(
-        test_dataset_file
-    )
+    eval_images, eval_labels, eval_image_names = dl.load_testing_data(test_dataset_file)
 
     eval_image_output_dirs = []
     for i in range(eval_images.shape[0]):
-        eval_image_output_dirs.append(
-            eval_params.save_foldername / Path(f"image_{i}")
-        )
+        eval_image_output_dirs.append(eval_params.save_foldername / Path(f"image_{i}"))
 
     eval_segments = np.swapaxes(
         utils.generate_boundary(np.squeeze(eval_labels, axis=3), axis=1), 0, 1
@@ -216,9 +212,9 @@ def evaluate_model(
             # Skip background class
             for class_idx in range(1, eval_params.num_classes):
                 class_eval_label = eval_label[:, :, class_idx].astype(bool)
-                class_catgorical_pred = categorical_pred[
-                    0, class_idx, :, :
-                ].astype(bool)
+                class_catgorical_pred = categorical_pred[0, class_idx, :, :].astype(
+                    bool
+                )
                 (
                     average_distance_gt_to_pred,
                     average_distance_pred_to_gt,
@@ -227,15 +223,10 @@ def evaluate_model(
                     class_catgorical_pred,
                     spacing=(0.01111111, 0.01111111),
                 )
-                average_surface_distances_gt_to_pred.append(
-                    average_distance_gt_to_pred
-                )
-                average_surface_distances_pred_to_gt.append(
-                    average_distance_pred_to_gt
-                )
+                average_surface_distances_gt_to_pred.append(average_distance_gt_to_pred)
+                average_surface_distances_pred_to_gt.append(average_distance_pred_to_gt)
                 average_surface_distances.append(
-                    (average_distance_gt_to_pred + average_distance_pred_to_gt)
-                    / 2.0
+                    (average_distance_gt_to_pred + average_distance_pred_to_gt) / 2.0
                 )
 
             average_surface_distances = np.array(average_surface_distances)
@@ -255,9 +246,9 @@ def evaluate_model(
             # Skip background class
             for class_idx in range(1, eval_params.num_classes):
                 class_eval_label = eval_label[:, :, class_idx].astype(bool)
-                class_catgorical_pred = categorical_pred[
-                    0, class_idx, :, :
-                ].astype(bool)
+                class_catgorical_pred = categorical_pred[0, class_idx, :, :].astype(
+                    bool
+                )
                 hausdorff_distances.append(
                     custom_metrics.hausdorff_distance(
                         class_eval_label,
@@ -299,9 +290,7 @@ def evaluate_model(
             print("Running graph search, segmenting boundary maps...")
             eval_image_t = np.transpose(eval_image, axes=[1, 0, 2])
             boundary_maps_t = np.transpose(boundary_maps, axes=[0, 2, 1])
-            graph_structure = graph_search.create_graph_structure(
-                eval_image_t.shape
-            )
+            graph_structure = graph_search.create_graph_structure(eval_image_t.shape)
 
             start_graph_time = time.time()
 
@@ -447,11 +436,7 @@ def evaluate_model(
         eval_outputs.append(eval_output)
 
         print(
-            "DONE image number: "
-            + str(ind + 1)
-            + " ("
-            + str(eval_image_name)
-            + ")..."
+            "DONE image number: " + str(ind + 1) + " (" + str(eval_image_name) + ")..."
         )
         print("______________________________")
 
@@ -536,9 +521,7 @@ def _save_image_evaluation_results(
 
     eval_labels = np.argmax(eval_labels, axis=2)
 
-    hdf5_file.create_dataset(
-        "eval_labels", data=eval_labels, dtype="uint8"
-    )
+    hdf5_file.create_dataset("eval_labels", data=eval_labels, dtype="uint8")
 
     np.savetxt(
         output_dir / Path("ground_truth_segmentation_map.csv"),
@@ -613,13 +596,9 @@ def _save_image_evaluation_results(
             "hausdorff_distances", data=hausdorff_distances, dtype="float64"
         )
 
-    hdf5_file.attrs["model_filename"] = np.array(
-        eval_params.model_path, dtype="S1000"
-    )
+    hdf5_file.attrs["model_filename"] = np.array(eval_params.model_path, dtype="S1000")
     hdf5_file.attrs["image_name"] = np.array(image_name, dtype="S1000")
-    hdf5_file.attrs["timestamp"] = np.array(
-        common_utils.get_timestamp(), dtype="S1000"
-    )
+    hdf5_file.attrs["timestamp"] = np.array(common_utils.get_timestamp(), dtype="S1000")
     hdf5_file.attrs["predict_time"] = np.array(predict_time)
     hdf5_file.close()
 
@@ -645,9 +624,7 @@ def _save_graph_based_evaluation_results(
 ):
     num_classes = gs_pred_segs.shape[0] + 1
     # Save graph search based prediction results
-    hdf5_file = h5py.File(
-        output_dir / Path(GS_EVALUATION_RESULTS_FILENAME), "w"
-    )
+    hdf5_file = h5py.File(output_dir / Path(GS_EVALUATION_RESULTS_FILENAME), "w")
 
     np.savetxt(
         output_dir / Path("gs_boundaries.csv"),
@@ -665,9 +642,7 @@ def _save_graph_based_evaluation_results(
 
     hdf5_file.create_dataset("gs_pred_segs", data=gs_pred_segs, dtype="uint16")
     hdf5_file.create_dataset("errors", data=errors, dtype="float64")
-    hdf5_file.create_dataset(
-        "mean_abs_err", data=mean_abs_err, dtype="float64"
-    )
+    hdf5_file.create_dataset("mean_abs_err", data=mean_abs_err, dtype="float64")
     hdf5_file.create_dataset("mean_err", data=mean_err, dtype="float64")
     hdf5_file.create_dataset("abs_err_sd", data=abs_err_sd, dtype="float64")
     hdf5_file.create_dataset("err_sd", data=err_sd, dtype="float64")
@@ -693,16 +668,12 @@ def _save_graph_based_evaluation_results(
             dtype="float64",
         )
 
-    hdf5_file.create_dataset(
-        "gs_predicted_labels", data=gs_eval_label, dtype="uint8"
-    )
+    hdf5_file.create_dataset("gs_predicted_labels", data=gs_eval_label, dtype="uint8")
 
     plotting.save_image_plot(
         gs_eval_label,
         output_dir / Path("gs_predicted_segmentation_map.png"),
-        cmap=plotting.colors.ListedColormap(
-            plotting.region_colours, N=num_classes
-        ),
+        cmap=plotting.colors.ListedColormap(plotting.region_colours, N=num_classes),
     )
 
     plotting.save_segmentation_plot(
@@ -723,20 +694,14 @@ def _save_graph_based_evaluation_results(
         column_range=range(eval_image.shape[1]),
     )
 
-    hdf5_file.attrs["model_filename"] = np.array(
-        eval_params.model_path, dtype="S1000"
-    )
+    hdf5_file.attrs["model_filename"] = np.array(eval_params.model_path, dtype="S1000")
     hdf5_file.attrs["image_name"] = np.array(image_name, dtype="S1000")
-    hdf5_file.attrs["timestamp"] = np.array(
-        common_utils.get_timestamp(), dtype="S1000"
-    )
+    hdf5_file.attrs["timestamp"] = np.array(common_utils.get_timestamp(), dtype="S1000")
     hdf5_file.attrs["graph_time"] = np.array(graph_time)
 
 
 def save_eval_config_file(eval_params: EvaluationParameters):
-    config_file = h5py.File(
-        eval_params.save_foldername / Path("eval_params.hdf5"), "w"
-    )
+    config_file = h5py.File(eval_params.save_foldername / Path("eval_params.hdf5"), "w")
     config_file.attrs["model_filename"] = np.array(
         eval_params.model_path, dtype="S1000"
     )
@@ -781,13 +746,10 @@ def _calc_overall_dataset_errors(
 
     # Loop through each evaluated image (non graph search)
     dir_list = [
-        Path(output_dir) / Path(f"image_{i}")
-        for i in range(len(eval_image_names))
+        Path(output_dir) / Path(f"image_{i}") for i in range(len(eval_image_names))
     ]
     for obj_name in dir_list:
-        eval_filename = (
-            output_dir / Path(obj_name) / Path(EVALUATION_RESULTS_FILENAME)
-        )
+        eval_filename = output_dir / Path(obj_name) / Path(EVALUATION_RESULTS_FILENAME)
         eval_file = h5py.File(eval_filename, "r")
 
         @typechecked
@@ -800,9 +762,7 @@ def _calc_overall_dataset_errors(
             if metric is None:
                 metric = np.expand_dims(file_metric, 0)
             else:
-                metric = np.concatenate(
-                    (metric, np.expand_dims(file_metric, 0)), 0
-                )
+                metric = np.concatenate((metric, np.expand_dims(file_metric, 0)), 0)
             return metric
 
         if EVALUATION_METRIC_DICE_CLASSES in metrics:
@@ -845,9 +805,7 @@ def _calc_overall_dataset_errors(
     if graph_search:
         for obj_name in dir_list:
             gs_eval_filename = (
-                output_dir
-                / Path(obj_name)
-                / Path(GS_EVALUATION_RESULTS_FILENAME)
+                output_dir / Path(obj_name) / Path(GS_EVALUATION_RESULTS_FILENAME)
             )
             gs_eval_file = h5py.File(gs_eval_filename, "r")
 
@@ -877,9 +835,7 @@ def _calc_overall_dataset_errors(
     save_filename = output_dir / Path(OVERALL_EVALUATION_RESULTS_FILENAME_HDF5)
     save_file = h5py.File(save_filename, "w")
 
-    save_textfilename = output_dir / Path(
-        OVERALL_EVALUATION_RESULTS_FILENAME_CSV
-    )
+    save_textfilename = output_dir / Path(OVERALL_EVALUATION_RESULTS_FILENAME_CSV)
     save_textfile = open(save_textfilename, "w")
 
     save_file["image_names"] = np.array(eval_image_names, dtype="S1000")
@@ -928,9 +884,7 @@ def _calc_overall_dataset_errors(
     if graph_search:
         # Dice Coef after Graph Search
         if EVALUATION_METRIC_DICE_CLASSES in metrics:
-            save_metric(
-                f"gs_{EVALUATION_METRIC_DICE_CLASSES}", gs_dices_classes
-            )
+            save_metric(f"gs_{EVALUATION_METRIC_DICE_CLASSES}", gs_dices_classes)
 
         if EVALUATION_METRIC_DICE_MACRO in metrics:
             save_metric(f"gs_{EVALUATION_METRIC_DICE_MACRO}", gs_dices_macro)
@@ -969,22 +923,16 @@ def _calc_overall_dataset_errors(
         save_file["errors"] = errors
 
         save_textfile.write("Mean abs errors,")
-        save_textfile.write(
-            ",".join([f"{e:.7f}" for e in mean_abs_errors]) + "\n"
-        )
+        save_textfile.write(",".join([f"{e:.7f}" for e in mean_abs_errors]) + "\n")
 
         save_textfile.write("Mean errors,")
         save_textfile.write(",".join([f"{e:.7f}" for e in mean_errors]) + "\n")
 
         save_textfile.write("Median absolute errors,")
-        save_textfile.write(
-            ",".join([f"{e:.7f}" for e in median_abs_errors]) + "\n"
-        )
+        save_textfile.write(",".join([f"{e:.7f}" for e in median_abs_errors]) + "\n")
 
         save_textfile.write("SD abs errors,")
-        save_textfile.write(
-            ",".join([f"{e:.7f}" for e in sd_abs_errors]) + "\n"
-        )
+        save_textfile.write(",".join([f"{e:.7f}" for e in sd_abs_errors]) + "\n")
 
         save_textfile.write("SD errors,")
         save_textfile.write(",".join([f"{e:.7f}" for e in sd_errors]) + "\n")

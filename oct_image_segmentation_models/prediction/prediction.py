@@ -133,9 +133,7 @@ def predict(predict_params: PredictionParams) -> List[PredictionOutput]:
             num_classes = len(categorical_pred)
             predict_image_t = np.transpose(predict_image, axes=[1, 0, 2])
             boundary_maps_t = np.transpose(boundary_maps, axes=[0, 2, 1])
-            graph_structure = graph_search.create_graph_structure(
-                predict_image_t.shape
-            )
+            graph_structure = graph_search.create_graph_structure(predict_image_t.shape)
 
             start_graph_time = time.time()
             gs_pred_segs, _, _ = graph_search.segment_maps(
@@ -252,9 +250,7 @@ def save_image_prediction_results(
             )
 
     if pred_params.save_params.boundary_maps is True:
-        hdf5_file.create_dataset(
-            "boundary_maps", data=boundary_maps, dtype="uint8"
-        )
+        hdf5_file.create_dataset("boundary_maps", data=boundary_maps, dtype="uint8")
 
     hdf5_file.create_dataset("raw_image", data=predict_image, dtype="uint8")
 
@@ -266,13 +262,9 @@ def save_image_prediction_results(
         vmax=255,
     )
 
-    hdf5_file.attrs["model_filename"] = np.array(
-        pred_params.model_path, dtype="S1000"
-    )
+    hdf5_file.attrs["model_filename"] = np.array(pred_params.model_path, dtype="S1000")
     hdf5_file.attrs["image_name"] = np.array(image_name, dtype="S1000")
-    hdf5_file.attrs["timestamp"] = np.array(
-        utils.get_timestamp(), dtype="S1000"
-    )
+    hdf5_file.attrs["timestamp"] = np.array(utils.get_timestamp(), dtype="S1000")
     hdf5_file.attrs["predict_time"] = np.array(predict_time)
     hdf5_file.attrs["convert_time"] = convert_time
     hdf5_file.close()
@@ -290,9 +282,7 @@ def save_graph_based_prediction_results(
 ):
     num_classes = gs_pred_segs.shape[0] + 1
     # Save graph search based prediction results
-    hdf5_file = h5py.File(
-        output_dir / Path("graph_search_prediction_info.hdf5"), "w"
-    )
+    hdf5_file = h5py.File(output_dir / Path("graph_search_prediction_info.hdf5"), "w")
 
     np.savetxt(
         output_dir / Path("gs_boundaries.csv"),
@@ -317,9 +307,7 @@ def save_graph_based_prediction_results(
     plotting.save_image_plot(
         gs_prediction_label,
         output_dir / Path("gs_predicted_segmentation_map.png"),
-        cmap=plotting.colors.ListedColormap(
-            plotting.region_colours, N=num_classes
-        ),
+        cmap=plotting.colors.ListedColormap(plotting.region_colours, N=num_classes),
     )
 
     plotting.save_segmentation_plot(
@@ -335,9 +323,7 @@ def save_graph_based_prediction_results(
         predict_params.model_path, dtype="S1000"
     )
     hdf5_file.attrs["image_name"] = np.array(image_name, dtype="S1000")
-    hdf5_file.attrs["timestamp"] = np.array(
-        utils.get_timestamp(), dtype="S1000"
-    )
+    hdf5_file.attrs["timestamp"] = np.array(utils.get_timestamp(), dtype="S1000")
     hdf5_file.attrs["graph_time"] = np.array(graph_time)
 
     hdf5_file.close()

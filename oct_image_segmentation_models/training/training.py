@@ -61,9 +61,7 @@ def save_training_params_file(
 
     config_file.attrs["epochs"] = train_params.epochs
     config_file.attrs["loss_name"] = np.array(train_params.loss, dtype="S1000")
-    config_file.attrs["metric_name"] = np.array(
-        train_params.metric, dtype="S1000"
-    )
+    config_file.attrs["metric_name"] = np.array(train_params.metric, dtype="S1000")
 
     if class_weight is None:
         config_file.attrs["class_weight"] = np.array("None", dtype="S1000")
@@ -76,9 +74,7 @@ def save_training_params_file(
     config_file.attrs["batch_size"] = train_params.batch_size
     config_file.attrs["shuffle"] = train_params.shuffle
 
-    config_file.attrs["aug_mode"] = np.array(
-        train_params.aug_mode, dtype="S100"
-    )
+    config_file.attrs["aug_mode"] = np.array(train_params.aug_mode, dtype="S100")
 
     if train_params.aug_mode != "none":
         for aug_ind in range(len(train_params.aug_fn_args)):
@@ -100,17 +96,11 @@ def save_training_params_file(
                     val = aug_arg[aug_param_key]
                     if type(val) is int or type(val) is float:
                         config_file.attrs[
-                            "aug_"
-                            + str(aug_ind + 1)
-                            + "_param: "
-                            + aug_param_key
+                            "aug_" + str(aug_ind + 1) + "_param: " + aug_param_key
                         ] = np.array(val)
                     elif type(val) is str:
                         config_file.attrs[
-                            "aug_"
-                            + str(aug_ind + 1)
-                            + "_param: "
-                            + aug_param_key
+                            "aug_" + str(aug_ind + 1) + "_param: " + aug_param_key
                         ] = np.array(val, dtype="S100")
                     elif type(val) is list and (
                         type(val[0]) is int
@@ -118,16 +108,11 @@ def save_training_params_file(
                         or type(val[0]) is float
                     ):
                         config_file.attrs[
-                            "aug_"
-                            + str(aug_ind + 1)
-                            + "_param: "
-                            + aug_param_key
+                            "aug_" + str(aug_ind + 1) + "_param: " + aug_param_key
                         ] = np.array(str(val), dtype="S100")
 
             if train_params.aug_mode == "one":
-                config_file.attrs["aug_probs"] = np.array(
-                    train_params.aug_probs
-                )
+                config_file.attrs["aug_probs"] = np.array(train_params.aug_probs)
 
         config_file.attrs["aug_fly"] = train_params.aug_fly
         config_file.attrs["aug_val"] = train_params.aug_val
@@ -140,9 +125,7 @@ def save_training_params_file(
 
     for key in opt_config:
         if type(opt_config[key]) is dict:
-            config_file.attrs["opt_param: " + key] = np.string_(
-                str(opt_config[key])
-            )
+            config_file.attrs["opt_param: " + key] = np.string_(str(opt_config[key]))
         else:
             config_file.attrs["opt_param: " + key] = opt_config[key]
 
@@ -175,9 +158,7 @@ def train_model(
                     "variables 'MLFLOW_TRACKING_USERNAME' and "
                     "'MLFLOW_TRACKING_PASSWORD' are correct"
                 )
-            log.exception(
-                msg="An error occurred while setting MLflow experiment"
-            )
+            log.exception(msg="An error occurred while setting MLflow experiment")
             sys.exit(1)
 
     if training_params.channels_last:
@@ -189,25 +170,20 @@ def train_model(
     # images numpy array should be of the shape: (number of images, image
     # width, image height, 1) segments numpy array should be of the shape:
     # (number of images, number of boundaries, image width)
-    train_images, train_labels = dataset_loader.load_training_data(
-        training_hdf5_file
-    )
-    val_images, val_labels = dataset_loader.load_validation_data(
-        training_hdf5_file
-    )
+    train_images, train_labels = dataset_loader.load_training_data(training_hdf5_file)
+    val_images, val_labels = dataset_loader.load_validation_data(training_hdf5_file)
 
     num_classes = len(np.unique(train_labels))
     log.info(f"Detected {num_classes} classes")
 
     _, image_height, image_width, input_channels = train_images.shape
     log.info(
-        f"Detected input image dimensions (h x w): {image_height} x "
-        f"{image_width}."
+        f"Detected input image dimensions (h x w): {image_height} x " f"{image_width}."
     )
     log.info(f"Detected {input_channels} input channels.")
 
     strategy = tf.distribute.MirroredStrategy()
-    atexit.register(strategy._extended._collective_ops._pool.close) # type: ignore
+    atexit.register(strategy._extended._collective_ops._pool.close)  # type: ignore
 
     log.info(f"Number of devices: {strategy.num_replicas_in_sync}")
 
@@ -239,9 +215,7 @@ def train_model(
             **training_params.loss_fn_kwargs,
         )
 
-    metric = custom_metrics.training_monitor_metric_objects.get(
-        training_params.metric
-    )
+    metric = custom_metrics.training_monitor_metric_objects.get(training_params.metric)
     if metric is None:
         log.error(f"Metric '{training_params.metric}' not found. Exiting...")
         exit(1)
@@ -315,9 +289,7 @@ def train_model(
         }
     )
 
-    mlflow.log_dict(
-        model_container.get_config(), "model/data/model_config.json"
-    )
+    mlflow.log_dict(model_container.get_config(), "model/data/model_config.json")
 
     if aug_val is False:
         aug_val_mode = "none"
@@ -411,9 +383,7 @@ def train_model(
             f"of training samples ({train_gen_total_samples})"
         )
         exit(1)
-    log.info(
-        f"Train generator total number of samples: {train_gen_total_samples}"
-    )
+    log.info(f"Train generator total number of samples: {train_gen_total_samples}")
 
     val_gen_total_samples = val_gen.get_total_samples()
     if batch_size > val_gen_total_samples:
@@ -423,8 +393,7 @@ def train_model(
         )
         exit(1)
     log.info(
-        "Validation generator total number of samples: "
-        f"{val_gen_total_samples}"
+        "Validation generator total number of samples: " f"{val_gen_total_samples}"
     )
 
     model.summary()

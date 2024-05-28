@@ -87,9 +87,7 @@ class DeeplabV3Plus(BaseModel):
         self,
         **kwargs,
     ) -> Model:
-        model_input = keras.Input(
-            shape=(self.image_height, self.image_width, 3)
-        )
+        model_input = keras.Input(shape=(self.image_height, self.image_width, 3))
         resnet50 = keras.applications.ResNet50(
             weights="imagenet", include_top=False, input_tensor=model_input
         )

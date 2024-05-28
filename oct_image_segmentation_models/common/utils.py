@@ -61,7 +61,9 @@ def load_model_and_config(
             exit(1)
     else:
         loaded_model = tf.keras.models.load_model(
-            model_path, custom_objects=custom_objects, compile=False,
+            model_path,
+            custom_objects=custom_objects,
+            compile=False,
         )
         with open(model_path.parent / Path("model_config.json"), "r") as config_file:
             model_config = json.load(config_file)
@@ -110,9 +112,7 @@ def perform_argmax(predictions, bin=True):
     return [argmax_pred, categorical_pred]
 
 
-def convert_predictions_to_maps_semantic(
-    categorical_pred, bg_ilm=True, bg_csi=False
-):
+def convert_predictions_to_maps_semantic(categorical_pred, bg_ilm=True, bg_csi=False):
     """
     #TODO: Document functionality
     """
@@ -126,9 +126,7 @@ def convert_predictions_to_maps_semantic(
     )
 
     for sample_ind in range(num_samples):
-        for map_ind in range(
-            1, num_maps
-        ):  # don't care about boundary for top region
+        for map_ind in range(1, num_maps):  # don't care about boundary for top region
 
             if (map_ind == 1 and bg_ilm is True) or (
                 map_ind == num_maps - 1 and bg_csi is True
@@ -147,9 +145,9 @@ def convert_predictions_to_maps_semantic(
 
                 grad_map -= rolled_grad
                 grad_map[grad_map < 0] = 0
-                boundary_maps[
-                    sample_ind, map_ind - 1, :, :
-                ] = convert_maps_uint8(grad_map)
+                boundary_maps[sample_ind, map_ind - 1, :, :] = convert_maps_uint8(
+                    grad_map
+                )
             else:
                 cur_map = categorical_pred[sample_ind, map_ind, :, :]
 
@@ -163,9 +161,9 @@ def convert_predictions_to_maps_semantic(
 
                 grad_map -= rolled_grad
                 grad_map[grad_map < 0] = 0
-                boundary_maps[
-                    sample_ind, map_ind - 1, :, :
-                ] = convert_maps_uint8(grad_map)
+                boundary_maps[sample_ind, map_ind - 1, :, :] = convert_maps_uint8(
+                    grad_map
+                )
 
     return boundary_maps
 

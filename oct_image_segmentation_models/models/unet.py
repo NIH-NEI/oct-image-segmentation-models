@@ -24,9 +24,7 @@ def batch_activate(x):
 
 
 def convolution_block(x, filters, kernel):
-    x = Conv2D(
-        filters, kernel, strides=(1, 1), padding="same", dilation_rate=1
-    )(x)
+    x = Conv2D(filters, kernel, strides=(1, 1), padding="same", dilation_rate=1)(x)
     x = batch_activate(x)
     return x
 

@@ -106,9 +106,7 @@ class TrainingParams:
         for augmentation in augmentations:
             aug_fn = aug.augmentation_map.get(augmentation["name"])
             if aug_fn is None:
-                log.error(
-                    f"Augmentation: '{augmentation['name']}' is not supported."
-                )
+                log.error(f"Augmentation: '{augmentation['name']}' is not supported.")
                 exit(1)
             self.aug_fn_args.append(
                 (

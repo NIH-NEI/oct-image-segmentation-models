@@ -60,6 +60,4 @@ class PredictionParams:
 
         self.col_error_range = col_error_range
         if col_error_range is None:
-            self.col_error_range = range(
-                dataset.images[0].shape[1]
-            )  # image_width
+            self.col_error_range = range(dataset.images[0].shape[1])  # image_width

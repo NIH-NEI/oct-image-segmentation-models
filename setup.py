@@ -7,9 +7,7 @@ from setuptools import setup
 def get_version():
     filename = "oct_image_segmentation_models/__init__.py"
     with open(filename) as f:
-        match = re.search(
-            r"""^__version__ = ['"]([^'"]*)['"]""", f.read(), re.M
-        )
+        match = re.search(r"""^__version__ = ['"]([^'"]*)['"]""", f.read(), re.M)
     if not match:
         raise RuntimeError("{} doesn't contain __version__".format(filename))
     version = match.groups()[0]
@@ -44,7 +42,7 @@ def main():
         long_description=get_long_description(),
         long_description_content_type="text/markdown",
         author="BioTeam, Inc.",
-        author_email="bruno@bioteam.net",
+        author_email="jacob@bioteam.net",
         url="https://www.bioteam.net",
         install_requires=get_install_requires(),
         license="GPLv3",

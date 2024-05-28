@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def generate_boundary(img_array):
     """
     Convention used by code in model: Considering the image in a

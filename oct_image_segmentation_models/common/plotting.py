@@ -118,9 +118,7 @@ def save_cur_trainval_plot(
         fontweight="bold",
     )
 
-    ax1.plot(
-        list(range(1, epoch + 2)), train_accs[: epoch + 1], color="#4286f4"
-    )
+    ax1.plot(list(range(1, epoch + 2)), train_accs[: epoch + 1], color="#4286f4")
     ax1.plot(list(range(1, epoch + 2)), val_accs[: epoch + 1], color="#b20e0e")
     ax1.legend(["Train Acc", "Val Acc"])
 
@@ -130,16 +128,10 @@ def save_cur_trainval_plot(
         ".",
         color="#4286f4",
     )
-    ax1.plot(
-        list(range(1, epoch + 2)), val_accs[: epoch + 1], ".", color="#b20e0e"
-    )
+    ax1.plot(list(range(1, epoch + 2)), val_accs[: epoch + 1], ".", color="#b20e0e")
 
-    ax2.plot(
-        list(range(1, epoch + 2)), train_losses[: epoch + 1], color="#4286f4"
-    )
-    ax2.plot(
-        list(range(1, epoch + 2)), val_losses[: epoch + 1], color="#b20e0e"
-    )
+    ax2.plot(list(range(1, epoch + 2)), train_losses[: epoch + 1], color="#4286f4")
+    ax2.plot(list(range(1, epoch + 2)), val_losses[: epoch + 1], color="#b20e0e")
     ax2.legend(["Train Loss", "Val Loss"])
 
     ax2.plot(
@@ -171,9 +163,7 @@ def setup_image_plot(image, cmap, vmin=None, vmax=None):
     elif image.ndim == 2:
         image_height, image_width = image.shape
 
-    fig = plt.figure(
-        num=None, figsize=(image_width / 100, image_height / 100), dpi=100
-    )
+    fig = plt.figure(num=None, figsize=(image_width / 100, image_height / 100), dpi=100)
     ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
     ax.set_axis_off()
     fig.add_axes(ax)
@@ -198,9 +188,7 @@ def save_image_plot(
     plt.close()
 
 
-def save_image_plot_crop(
-    image, filename, cmap, crop_bounds, vmin=None, vmax=None
-):
+def save_image_plot_crop(image, filename, cmap, crop_bounds, vmin=None, vmax=None):
     image = np.array(
         image[
             crop_bounds[0][0] : crop_bounds[0][1],
@@ -241,18 +229,14 @@ def save_segmentation_plot(
             if color is None:
                 plt.plot(
                     column_range,
-                    truths[
-                        boundary_ind, column_range[0] : column_range[-1] + 1
-                    ],
+                    truths[boundary_ind, column_range[0] : column_range[-1] + 1],
                     linewidth=linewidth,
                     color=truth_colours[boundary_ind],
                 )
             else:
                 plt.plot(
                     column_range,
-                    truths[
-                        boundary_ind, column_range[0] : column_range[-1] + 1
-                    ],
+                    truths[boundary_ind, column_range[0] : column_range[-1] + 1],
                     linewidth=linewidth,
                     color=color,
                 )
@@ -265,9 +249,7 @@ def save_segmentation_plot(
             if color is None:
                 plt.plot(
                     column_range,
-                    predictions[
-                        boundary_ind, column_range[0] : column_range[-1] + 1
-                    ],
+                    predictions[boundary_ind, column_range[0] : column_range[-1] + 1],
                     linestyle=":",
                     linewidth=linewidth,
                     color=predict_colours[boundary_ind],
@@ -275,9 +257,7 @@ def save_segmentation_plot(
             else:
                 plt.plot(
                     column_range,
-                    predictions[
-                        boundary_ind, column_range[0] : column_range[-1] + 1
-                    ],
+                    predictions[boundary_ind, column_range[0] : column_range[-1] + 1],
                     linestyle=":",
                     linewidth=linewidth,
                     color=color,

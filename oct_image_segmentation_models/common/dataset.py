@@ -18,12 +18,13 @@ class Dataset:
     'images_names' with shape: (number of images,)
     (dtype = 'S' - fixed length strings)
     """
+
     def __init__(
         self,
         images: np.ndarray,
         image_masks: Optional[np.ndarray],
         image_names: List[Path],
-        image_output_dirs: List[Path]
+        image_output_dirs: List[Path],
     ):
         self.images = images
         self.image_masks = image_masks

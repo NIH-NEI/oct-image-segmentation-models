@@ -7,6 +7,7 @@ import os
 __version__ = "0.8.0"
 
 import matplotlib
+
 # There is a memory buildup in matplotlib. For now current solution is to use "Agg"
 # For reference: https://github.com/matplotlib/mplfinance/issues/386
 matplotlib.use("Agg")

@@ -41,9 +41,7 @@ def weighted_categorical_crossentropy(weights):
 def focal_loss(
     gamma: float = 2, class_weight: Union[np.ndarray, None] = None, **kwargs
 ):
-    return fl.SparseCategoricalFocalLoss(
-        gamma=gamma, class_weight=class_weight
-    )
+    return fl.SparseCategoricalFocalLoss(gamma=gamma, class_weight=class_weight)
 
 
 @typechecked
@@ -85,14 +83,10 @@ def dice_loss_macro(*, is_y_true_sparse: bool, num_classes: int, **kwargs):
 
 @typechecked
 def bce_dice_loss(*, num_classes: int, **kwargs):
-    dice_loss_fn = dice_loss_micro(
-        is_y_true_sparse=False, num_classes=num_classes
-    )
+    dice_loss_fn = dice_loss_micro(is_y_true_sparse=False, num_classes=num_classes)
 
     def _bce_dice_loss(y_true, y_pred):
-        return binary_crossentropy(y_true, y_pred) + dice_loss_fn(
-            y_true, y_pred
-        )
+        return binary_crossentropy(y_true, y_pred) + dice_loss_fn(y_true, y_pred)
 
     return _bce_dice_loss
 
@@ -156,9 +150,7 @@ class SparseCategoricalFocalDiceLoss(fl.SparseCategoricalFocalLoss):
         focal_loss = super().call(y_true, y_pred)
         # The focal loss is averaged accros the local batch.
         # Keras will handle the division by the number of replicas
-        focal_loss = K.sum(focal_loss) / tf.cast(
-            tf.size(y_true), dtype=tf.float32
-        )
+        focal_loss = K.sum(focal_loss) / tf.cast(tf.size(y_true), dtype=tf.float32)
         dice_loss = self.dice_loss_fn(y_true, y_pred)
 
         return (
@@ -231,9 +223,7 @@ def weighted_bce_dice_loss(y_true, y_pred):
     weight = 5.0 * K.exp(-5.0 * K.abs(averaged_mask - 0.5))
     w1 = K.sum(weight)
     weight *= w0 / w1
-    loss = weighted_bce_loss(y_true, y_pred, weight) + dice_loss_micro(
-        y_true, y_pred
-    )
+    loss = weighted_bce_loss(y_true, y_pred, weight) + dice_loss_micro(y_true, y_pred)
     return loss
 
 

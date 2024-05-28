@@ -54,8 +54,7 @@ class SaveEpochInfo(keras.callbacks.Callback):
         self.epoch_times.append(time.time() - self.start_epoch_time)
 
         stats_epoch_file = h5py.File(
-            self.save_folder
-            / Path("stats_epoch{:02d}.hdf5".format(epoch + 1)),
+            self.save_folder / Path("stats_epoch{:02d}.hdf5".format(epoch + 1)),
             "w",
         )
         stats_epoch_file["train_acc"] = self.train_accs

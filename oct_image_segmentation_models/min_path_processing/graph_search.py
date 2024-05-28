@@ -83,9 +83,13 @@ def run_dijkstras(prob_map, start_ind, graph_structure):
                 if shortest_paths[n] is None:
                     # we have not found the shortest path for n yet
                     if neigh_v_col == cur_v_col and neigh_v_row == cur_v_row + 1:
-                        heappush(candidates_q, (path_len + edge_len, 0, add_count, n, v))
+                        heappush(
+                            candidates_q, (path_len + edge_len, 0, add_count, n, v)
+                        )
                     else:
-                        heappush(candidates_q, (path_len + edge_len, i + 1, add_count, n, v))
+                        heappush(
+                            candidates_q, (path_len + edge_len, i + 1, add_count, n, v)
+                        )
 
                     add_count += 1
                 else:
@@ -561,7 +565,9 @@ def segment_maps(prob_maps, truths, graph_structure):
 
         if truths is not None:
             error = calc_errors(prediction, truths[map_ind, :])
-            errors[map_ind:, ] = error
+            errors[
+                map_ind:,
+            ] = error
 
     return (predictions, errors, prob_maps)
 
