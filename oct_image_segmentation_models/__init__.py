@@ -1,3 +1,4 @@
+import importlib.metadata
 import os
 
 # Semantic Versioning 2.0.0: https://semver.org/
@@ -5,6 +6,7 @@ import os
 # 2. MINOR version when you add functionality in a backwards-compatible manner;
 # 3. PATCH version when you make backwards-compatible bug fixes.
 __version__ = "0.8.0"
+# __version__ = importlib.metadata.version("oct_image_segmentation_models")
 
 import matplotlib
 
