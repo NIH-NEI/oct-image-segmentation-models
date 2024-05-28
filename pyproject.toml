@@ -30,7 +30,7 @@ dependencies = [
     "scikit-learn==1.1.3",
     "tensorflow==2.9.0",
     "typeguard==2.13.3",
-    "Surface-Distance-Based-Measures==0.1",
+    "surface-distance-based-measures@git+https://github.com/google-deepmind/surface-distance",
 ]
 
 [project.optional-dependencies]
