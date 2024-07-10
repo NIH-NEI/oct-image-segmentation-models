@@ -14,6 +14,7 @@ predict_colours = [
     "#46bdc6",
     "#ab30c4",
     "#fde8ff",
+    "#4285f4",
 ]
 truth_colours = [
     "#2b5790",
