@@ -25,6 +25,7 @@ truth_colours = [
     "#26686d",
     "#5f1a6d",
     "#f266ff",
+    "#2b5790",
 ]
 region_colours = [
     "#fde8ff",
