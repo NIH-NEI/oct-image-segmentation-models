@@ -15,6 +15,9 @@ predict_colours = [
     "#ab30c4",
     "#fde8ff",
     "#4285f4",
+    "#db4437",
+    "#f4b400",
+    "#0f9d58",
 ]
 truth_colours = [
     "#2b5790",
@@ -26,6 +29,9 @@ truth_colours = [
     "#5f1a6d",
     "#f266ff",
     "#2b5790",
+    "#7a261e",
+    "#9b7200",
+    "#085630",
 ]
 region_colours = [
     "#fde8ff",
@@ -37,6 +43,9 @@ region_colours = [
     "#46bdc6",
     "#ab30c4",
     "#0e0d5e",
+    "#fde8ff",
+    "#4285f4",
+    "#db4437",
 ]
 region_cmap = colors.ListedColormap(region_colours)
 
