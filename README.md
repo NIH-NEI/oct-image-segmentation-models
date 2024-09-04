@@ -18,7 +18,7 @@ www.github.com/bioteam/ML-Image-Segmentation.git
 python3 -m venv venv
 source venv/bin/activate
 ./build.sh
-pip install dist/oct_image_segmentation_models-0.8.0-py2.py3-none-any.whl
+pip install dist/oct_image_segmentation_models-0.8.2-py2.py3-none-any.whl
 ```
 
 # Instructions
