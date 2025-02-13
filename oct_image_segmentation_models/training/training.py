@@ -135,7 +135,7 @@ def save_training_params_file(
 @typechecked
 def train_model(
     training_params: tparams.TrainingParams,
-    mlflow_params: MLflowParameters = None,
+    mlflow_params: MLflowParameters | None,
 ):
     if mlflow_params:
         mlflow.tensorflow.autolog(keras_model_kwargs={"save_format": "h5"})
@@ -307,9 +307,10 @@ def train_model(
     timestamp = utils.get_timestamp()
 
     results_location = training_params.results_location
+    run_id = "" if not mlflow_params else mlflow_run.info.run_id
     save_foldername = (
         results_location
-        / Path(mlflow_run.info.run_id)
+        / Path(run_id)
         / Path(timestamp + "_" + model_architecture)
     )
 
