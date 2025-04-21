@@ -7,6 +7,4 @@ MAINTAINER Jacob Czech <jacob@bioteam.net>
 #     apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/7fa2af80.pub && \
 #     apt-get update
 
-RUN apt-get install -y vim
-
 RUN pip install prettytable art pillow==9.0.1 matplotlib mlflow
