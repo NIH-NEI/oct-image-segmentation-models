@@ -7,7 +7,7 @@ name="oct_image_segmentation_models"
 version = "0.8.4"
 description = "OCT Image Segmentation Models"
 readme = "README.md"
-requires-python = ">=3.8.10"
+requires-python = ">=3.10"
 license = {file = "LICENSE.md"}
 keywords = ["Image Segmentation", "Machine Learning"]
 classifiers = [
@@ -15,7 +15,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Natural Language :: English",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8.10",
+    "Programming Language :: Python :: 3.10",
 ]
 authors = [
   {name = "Bruno Alvisio"},
